@@ -171,7 +171,7 @@ function onKeydown(e) {
           break;
         case 'o': TOC.toggle();              break;
         case 'c': Settings.show();           break;
-        case 'e': document.getElementById('export-menu').hidden = false; break;
+        case 'e': Editor.exportDoc('txt'); break;
         case 's': Stats.show();              break;
         case 'i': showFileInfo();            break;
         case 't': Timer.toggle();  Editor.updateStatusBar(); break;
@@ -191,6 +191,7 @@ function onKeydown(e) {
     if (ctrl && lkey === 'g')     { e.preventDefault(); e.stopPropagation(); Editor.gotoLine();          return; }
     if (ctrl && lkey === 'l')     { e.preventDefault(); e.stopPropagation(); Editor.toggleLineNumbers();  return; }
     if (e.altKey && lkey === 't') { e.preventDefault(); e.stopPropagation(); Timer.toggle(); Editor.updateStatusBar(); return; }
+    if (e.altKey && lkey === 'c') { e.preventDefault(); e.stopPropagation(); Editor.enterCmdMode(); return; }
 
     if (lkey === 'escape') {
       e.preventDefault(); e.stopPropagation();
@@ -208,6 +209,11 @@ function onKeydown(e) {
     }
   }
 
+  // Ctrl+N → new document (overrides browser "new window", requires option)
+  if (State.settings.interceptBrowserShortcuts && ctrl && lkey === 'n' && !inInput) {
+    e.preventDefault(); e.stopPropagation(); Browser.newDoc(); return;
+  }
+
   // Browser shortcuts (no input focused)
   if (inBrowser && !inInput) {
     if (lkey === 'n') { e.preventDefault(); Browser.newDoc();        return; }
@@ -215,10 +221,6 @@ function onKeydown(e) {
     if (lkey === 'w' && Browser.hasFSA) { e.preventDefault(); Browser.openFolder();   return; }
     if (lkey === 's') { e.preventDefault(); Stats.show();            return; }
     if (lkey === 'c') { e.preventDefault(); Settings.show();         return; }
-    // Override browser Ctrl+N → new document (only when option enabled)
-    if (State.settings.interceptBrowserShortcuts && ctrl && lkey === 'n') {
-      e.preventDefault(); e.stopPropagation(); Browser.newDoc(); return;
-    }
   }
 }
 
@@ -266,16 +268,14 @@ async function init() {
   document.getElementById('br-import-btn').addEventListener('click', triggerImport);
   document.getElementById('br-folder-btn').addEventListener('click',  () => Browser.openFolder());
   document.getElementById('br-opendisk-btn').addEventListener('click', () => Browser.openFromDisk());
-  document.getElementById('ed-close-btn').addEventListener('click',  () => Editor.close());
-  document.getElementById('ed-settings-btn').addEventListener('click', () => Settings.show());
-  document.getElementById('ed-toc-btn').addEventListener('click',    () => TOC.toggle());
+  document.getElementById('ed-close-btn').addEventListener('click', () => Editor.close());
 
   // File import input
   const fileInput = document.getElementById('file-import-input');
   fileInput.addEventListener('change', async () => {
     if (fileInput.files.length) {
       await importFiles(Array.from(fileInput.files));
-      fileInput.value = ''; // reset so same file can be re-imported
+      fileInput.value = '';
     }
   });
   // Drag and drop on browser panel
@@ -289,96 +289,84 @@ async function init() {
     if (files.length) await importFiles(files);
   });
 
-  // Export menu
-  const exportBtn  = document.getElementById('ed-export-btn');
-  const exportMenu = document.getElementById('export-menu');
-  exportBtn.addEventListener('click', e => { e.stopPropagation(); exportMenu.hidden = !exportMenu.hidden; });
-  exportMenu.querySelectorAll('button').forEach(btn => {
-    btn.addEventListener('click', () => { exportMenu.hidden = true; Editor.exportDoc(btn.dataset.fmt); });
-  });
-  document.addEventListener('click', () => { exportMenu.hidden = true; moreMenu.hidden = true; });
+  // Main editor menu (≡ button)
+  const menuBtn  = document.getElementById('ed-menu-btn');
+  const edMenu   = document.getElementById('ed-menu');
 
-  // Format & commands menu (Aa button)
-  const moreBtn  = document.getElementById('ed-more-btn');
-  const moreMenu = document.getElementById('ed-more-menu');
+  function execCmd(cmd) {
+    edMenu.hidden = true;
+    switch (cmd) {
+      case 'toc':        TOC.toggle();              break;
+      case 'dark':
+        State.settings.darkMode = !State.settings.darkMode;
+        saveSettings(); applyTheme();
+        if (State.doc) Editor.rehighlight();
+        break;
+      case 'linenos':    Editor.toggleLineNumbers(); break;
+      case 'typewriter': Editor.toggleTypewriter();  break;
+      case 'find':       Editor.searchOpen(false);   break;
+      case 'replace':    Editor.searchOpen(true);    break;
+      case 'goto':       Editor.gotoLine();          break;
+      case 'export-txt': Editor.exportDoc('txt');    break;
+      case 'export-md':  Editor.exportDoc('md');     break;
+      case 'stats':      Stats.show();               break;
+      case 'info':       showFileInfo();             break;
+      case 'timer':      Timer.toggle(); Editor.updateStatusBar(); break;
+      case 'config':     Settings.show();            break;
+    }
+  }
 
-  function openMoreMenu() {
+  function openMenu() {
     const s  = State.settings;
     const hm = s.headingMarker || '';
     [1, 2, 3].forEach(lvl => {
-      const btn = moreMenu.querySelector(`[data-markup="h${lvl}"]`);
+      const btn = edMenu.querySelector(`[data-markup="h${lvl}"]`);
       const p   = hm.repeat(lvl);
-      btn.innerHTML = hm
-        ? `<span>${p} H${lvl} ${p}</span>`
-        : `<span>H${lvl}</span>`;
-      btn.disabled = !hm;
+      btn.innerHTML = hm ? `<span>${p} H${lvl} ${p}</span>` : `<span>H${lvl}</span>`;
+      btn.disabled  = !hm;
     });
-    const inline = [
-      ['comment',   s.commentMarker,   'Comment (line)'],
-      ['bold',      s.boldMarker,      'Bold'],
-      ['italic',    s.italicMarker,    'Italic'],
-      ['underline', s.underlineMarker, 'Underline'],
-      ['strike',    s.strikeMarker,    'Strike'],
-    ];
-    inline.forEach(([type, marker, label]) => {
-      const btn = moreMenu.querySelector(`[data-markup="${type}"]`);
-      btn.innerHTML = marker
-        ? `<span>${marker} ${label}</span>`
-        : `<span>${label}</span>`;
-      btn.disabled = !marker;
+    [['comment', s.commentMarker, 'Comment (line)'],
+     ['bold',    s.boldMarker,    'Bold'],
+     ['italic',  s.italicMarker,  'Italic'],
+     ['underline', s.underlineMarker, 'Underline'],
+     ['strike',  s.strikeMarker,  'Strike'],
+    ].forEach(([type, marker, label]) => {
+      const btn = edMenu.querySelector(`[data-markup="${type}"]`);
+      btn.innerHTML = marker ? `<span>${marker} ${label}</span>` : `<span>${label}</span>`;
+      btn.disabled  = !marker;
     });
-    moreMenu.hidden = false;
+    edMenu.hidden = false;
   }
 
-  moreBtn.addEventListener('click', e => { e.stopPropagation(); moreMenu.hidden ? openMoreMenu() : (moreMenu.hidden = true); });
+  menuBtn.addEventListener('click', e => { e.stopPropagation(); edMenu.hidden ? openMenu() : (edMenu.hidden = true); });
 
   document.getElementById('ed-more-cmd').addEventListener('click', () => {
-    moreMenu.hidden = true;
+    edMenu.hidden = true;
     Editor.enterCmdMode();
   });
 
-  moreMenu.querySelectorAll('[data-markup]').forEach(btn => {
+  edMenu.querySelectorAll('[data-markup]').forEach(btn => {
     btn.addEventListener('click', () => {
-      moreMenu.hidden = true;
+      edMenu.hidden = true;
       const s = State.settings;
       switch (btn.dataset.markup) {
-        case 'h1':        Editor.applyHeading(1);                    break;
-        case 'h2':        Editor.applyHeading(2);                    break;
-        case 'h3':        Editor.applyHeading(3);                    break;
-        case 'comment':   Editor.applyLineMarker(s.commentMarker);   break;
-        case 'bold':      Editor.applyInlineMarker(s.boldMarker);    break;
-        case 'italic':    Editor.applyInlineMarker(s.italicMarker);  break;
+        case 'h1':        Editor.applyHeading(1);                      break;
+        case 'h2':        Editor.applyHeading(2);                      break;
+        case 'h3':        Editor.applyHeading(3);                      break;
+        case 'comment':   Editor.applyLineMarker(s.commentMarker);     break;
+        case 'bold':      Editor.applyInlineMarker(s.boldMarker);      break;
+        case 'italic':    Editor.applyInlineMarker(s.italicMarker);    break;
         case 'underline': Editor.applyInlineMarker(s.underlineMarker); break;
-        case 'strike':    Editor.applyInlineMarker(s.strikeMarker);  break;
+        case 'strike':    Editor.applyInlineMarker(s.strikeMarker);    break;
       }
     });
   });
 
-  moreMenu.querySelectorAll('[data-cmd]').forEach(btn => {
-    btn.addEventListener('click', () => {
-      moreMenu.hidden = true;
-      switch (btn.dataset.cmd) {
-        case 'find':       Editor.searchOpen(false); break;
-        case 'replace':    Editor.searchOpen(true);  break;
-        case 'goto':       Editor.gotoLine();        break;
-        case 'linenos':    Editor.toggleLineNumbers(); break;
-        case 'toc':        TOC.toggle();             break;
-        case 'dark':
-          State.settings.darkMode = !State.settings.darkMode;
-          saveSettings(); applyTheme();
-          if (State.doc) Editor.rehighlight();
-          break;
-        case 'config':     Settings.show();          break;
-        case 'export':     exportMenu.hidden = false; break;
-        case 'stats':      Stats.show();             break;
-        case 'info':       showFileInfo();           break;
-        case 'timer':      Timer.toggle(); Editor.updateStatusBar(); break;
-        case 'pause':      Timer.isActive() ? Timer.pause() : Timer.toggle(); Editor.updateStatusBar(); break;
-        case 'typewriter': Editor.toggleTypewriter(); break;
-        case 'close':      Editor.close();           break;
-      }
-    });
+  edMenu.querySelectorAll('[data-cmd]').forEach(btn => {
+    btn.addEventListener('click', () => execCmd(btn.dataset.cmd));
   });
+
+  document.addEventListener('click', () => { edMenu.hidden = true; });
 
   // Search bar
   document.getElementById('search-input').addEventListener('input',  () => Editor.searchUpdate());

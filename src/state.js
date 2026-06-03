@@ -43,7 +43,7 @@ const State = {
     statusCenter: '',
     statusRight: 'goal clock timer',
     lineNumbers: false,
-    interceptBrowserShortcuts: false
+    interceptBrowserShortcuts: true
   },
 
   favorites: [],  // [id, ...]

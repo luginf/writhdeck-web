@@ -364,13 +364,13 @@ const Editor = (() => {
 
   function enterCmdMode() {
     _cmdMode = true;
-    document.getElementById('ed-more-btn').classList.add('active');
+    document.getElementById('ed-menu-btn').classList.add('active');
     updateStatusBar();
   }
 
   function exitCmdMode() {
     _cmdMode = false;
-    document.getElementById('ed-more-btn').classList.remove('active');
+    document.getElementById('ed-menu-btn').classList.remove('active');
     updateStatusBar();
   }
 
@@ -392,7 +392,7 @@ const Editor = (() => {
     if (_cmdMode) {
       document.getElementById('ed-bar-left').textContent   = 'f:find  r:replace  g:goto  n:linenos  o:toc';
       document.getElementById('ed-bar-center').textContent = 'd:dark  c:config  e:export  s:stats  i:info';
-      document.getElementById('ed-bar-right').textContent  = 't:timer  p:pause  w:typewriter  q:close  ·ESC:exit·';
+      document.getElementById('ed-bar-right').textContent  = 't:timer  p:pause  w:typewriter  q:close  ·ESC/Alt+C:exit·';
       return;
     }
     const s = State.settings;
