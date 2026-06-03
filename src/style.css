@@ -222,11 +222,7 @@ input[type="color"] { width: 40px; height: 24px; padding: 1px; border: 1px solid
   pointer-events: none;
   user-select: none;
   overflow: hidden;
-  /* Match textarea's scrollbar gutter so text wraps at the same width */
-  overflow-y: scroll;
-  scrollbar-width: none;
 }
-#ed-highlight::-webkit-scrollbar { display: none; }
 
 #ed-input {
   background: transparent;
@@ -235,7 +231,6 @@ input[type="color"] { width: 40px; height: 24px; padding: 1px; border: 1px solid
   resize: none;
   overflow-y: auto;
   overflow-x: hidden;
-  scrollbar-gutter: stable;
   z-index: 1;
   selection-color: var(--bg-sel);
 }
@@ -246,8 +241,8 @@ input[type="color"] { width: 40px; height: 24px; padding: 1px; border: 1px solid
 .hl-comment  { color: var(--comment); }
 .hl-markup   { color: var(--markup); }
 
-/* Search bar */
-#search-bar {
+/* Search / goto bars */
+#search-bar, #goto-bar {
   display: flex;
   align-items: center;
   gap: 6px;
@@ -256,8 +251,9 @@ input[type="color"] { width: 40px; height: 24px; padding: 1px; border: 1px solid
   flex-shrink: 0;
   flex-wrap: wrap;
 }
-#search-bar[hidden] { display: none; }
+#search-bar[hidden], #goto-bar[hidden] { display: none; }
 #search-input, #replace-input { width: 200px; }
+#goto-input { width: 80px; }
 #search-count { font-size: 0.8em; color: var(--fg-bar); min-width: 80px; }
 
 /* Status bar */
@@ -290,6 +286,32 @@ input[type="color"] { width: 40px; height: 24px; padding: 1px; border: 1px solid
 #export-menu[hidden] { display: none; }
 #export-menu button { text-align: left; padding: 6px 16px; border: none; }
 #export-menu button:hover { background: var(--bg-sel); color: var(--fg); }
+
+#ed-more-menu {
+  position: fixed;
+  right: 8px;
+  top: 40px;
+  background: var(--bg-bar);
+  border: 1px solid var(--fg-bar);
+  display: flex;
+  flex-direction: column;
+  z-index: 100;
+  min-width: 220px;
+  max-height: 80vh;
+  overflow-y: auto;
+}
+#ed-more-menu[hidden] { display: none; }
+#ed-more-menu button {
+  display: flex; justify-content: space-between; align-items: center;
+  text-align: left; padding: 5px 16px; border: none;
+  font-family: var(--font-family); font-size: var(--font-size);
+}
+#ed-more-menu button:disabled { opacity: 0.35; pointer-events: none; }
+#ed-more-menu button:hover:not(:disabled) { background: var(--bg-sel); color: var(--fg); }
+#ed-more-menu button .hint { margin-left: 12px; font-size: 0.8em; color: var(--fg-bar); flex-shrink: 0; }
+#ed-more-menu button:hover .hint { color: inherit; }
+.more-sep   { height: 1px; background: var(--fg-bar); opacity: 0.3; margin: 3px 0; flex-shrink: 0; }
+.more-label { padding: 3px 16px 1px; font-size: 0.75em; color: var(--fg-bar); text-transform: uppercase; letter-spacing: 0.05em; }
 
 /* ─── Dialogs ───────────────────────────────────────────────────────────── */
 dialog {

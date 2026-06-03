@@ -49,6 +49,7 @@ const Editor = (() => {
     _typewriter = false;
     document.getElementById('editor').classList.remove('typewriter');
     rehighlight();
+    syncGutter();
     syncScroll();
     applyLineNumbers();
     updateStatusBar();
@@ -163,6 +164,16 @@ const Editor = (() => {
 
   function rehighlight() {
     pre().innerHTML = highlight(ta().value, State.settings);
+    syncGutter();
+  }
+
+  function syncGutter() {
+    const input = ta();
+    const hl    = pre();
+    // Measure actual scrollbar width: offsetWidth includes it, clientWidth doesn't
+    const gutter   = input.offsetWidth - input.clientWidth;
+    const baseRight = parseFloat(getComputedStyle(input).paddingRight) || 0;
+    hl.style.paddingRight = (baseRight + gutter) + 'px';
   }
 
   function syncScroll() {
@@ -226,9 +237,17 @@ const Editor = (() => {
   // ── Go to line ────────────────────────────────────────────────────────────
 
   function gotoLine() {
-    const raw = prompt('Go to line:');
-    if (!raw) return;
-    const n = parseInt(raw, 10);
+    const bar = document.getElementById('goto-bar');
+    bar.hidden = false;
+    const gi = document.getElementById('goto-input');
+    gi.value = '';
+    gi.focus();
+    gi.select();
+  }
+
+  function gotoLineGo() {
+    const n = parseInt(document.getElementById('goto-input').value, 10);
+    gotoLineClose();
     if (isNaN(n) || n < 1) return;
     const input   = ta();
     const lines   = input.value.split('\n');
@@ -238,6 +257,11 @@ const Editor = (() => {
     input.focus();
     input.setSelectionRange(offset, offset);
     input.scrollTop = Math.max(0, linePixelTop(input, lineIdx) - input.clientHeight / 3);
+  }
+
+  function gotoLineClose() {
+    document.getElementById('goto-bar').hidden = true;
+    ta().focus();
   }
 
   function linePixelTop(input, lineIdx) {
@@ -255,15 +279,98 @@ const Editor = (() => {
     return top;
   }
 
+  // ── Markup helpers ────────────────────────────────────────────────────────
+
+  function applyLineMarker(marker) {
+    if (!marker) return;
+    const input = ta();
+    const s = input.selectionStart, e = input.selectionEnd;
+    const text = input.value;
+    const blockStart = text.lastIndexOf('\n', s - 1) + 1;
+    const raw = text.indexOf('\n', e);
+    const blockEnd = raw === -1 ? text.length : raw;
+    const lines = text.slice(blockStart, blockEnd).split('\n');
+    const allMarked = lines.every(l => l.startsWith(marker));
+    const newLines = allMarked ? lines.map(l => l.slice(marker.length)) : lines.map(l => marker + l);
+    const newBlock = newLines.join('\n');
+    input.value = text.slice(0, blockStart) + newBlock + text.slice(blockEnd);
+    input.setSelectionRange(blockStart, blockStart + newBlock.length);
+    onInput();
+  }
+
+  function applyInlineMarker(marker) {
+    if (!marker) return;
+    const input = ta();
+    const s = input.selectionStart, e = input.selectionEnd;
+    const text = input.value;
+    if (s === e) {
+      input.value = text.slice(0, s) + marker + marker + text.slice(s);
+      input.setSelectionRange(s + marker.length, s + marker.length);
+    } else {
+      const sel = text.slice(s, e);
+      const isWrapped = sel.startsWith(marker) && sel.endsWith(marker) && sel.length > marker.length * 2;
+      if (isWrapped) {
+        const inner = sel.slice(marker.length, -marker.length);
+        input.value = text.slice(0, s) + inner + text.slice(e);
+        input.setSelectionRange(s, s + inner.length);
+      } else {
+        const wrapped = marker + sel + marker;
+        input.value = text.slice(0, s) + wrapped + text.slice(e);
+        input.setSelectionRange(s, s + wrapped.length);
+      }
+    }
+    onInput();
+  }
+
+  function applyHeading(level) {
+    const marker = State.settings.headingMarker;
+    if (!marker) return;
+    const input = ta();
+    const s = input.selectionStart, e = input.selectionEnd;
+    const text = input.value;
+    const blockStart = text.lastIndexOf('\n', s - 1) + 1;
+    const raw = text.indexOf('\n', e);
+    const blockEnd = raw === -1 ? text.length : raw;
+    const prefix = marker.repeat(level);
+    const mEsc   = marker.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+    function headingLevel(line) {
+      if (!line.startsWith(marker)) return 0;
+      let n = 1;
+      while (n < 3 && line.startsWith(marker.repeat(n + 1))) n++;
+      return n;
+    }
+    function stripHeading(line) {
+      return line
+        .replace(new RegExp(`^${mEsc}+\\s*`), '')
+        .replace(new RegExp(`\\s*${mEsc}+\\s*$`), '')
+        .trim();
+    }
+
+    const lines = text.slice(blockStart, blockEnd).split('\n');
+    const allAtLevel = lines.every(l => headingLevel(l) === level);
+    const newLines = lines.map(l => {
+      if (allAtLevel) return stripHeading(l);
+      const content = headingLevel(l) > 0 ? stripHeading(l) : l.trim();
+      return content ? `${prefix} ${content} ${prefix}` : `${prefix}  ${prefix}`;
+    });
+    const newBlock = newLines.join('\n');
+    input.value = text.slice(0, blockStart) + newBlock + text.slice(blockEnd);
+    input.setSelectionRange(blockStart, blockStart + newBlock.length);
+    onInput();
+  }
+
   // ── Command mode (ESC) ───────────────────────────────────────────────────
 
   function enterCmdMode() {
     _cmdMode = true;
+    document.getElementById('ed-more-btn').classList.add('active');
     updateStatusBar();
   }
 
   function exitCmdMode() {
     _cmdMode = false;
+    document.getElementById('ed-more-btn').classList.remove('active');
     updateStatusBar();
   }
 
@@ -283,10 +390,9 @@ const Editor = (() => {
 
   function updateStatusBar() {
     if (_cmdMode) {
-      document.getElementById('ed-bar-left').textContent =
-        'ESC: exit  s:stats  i:info  t:timer  p:pause  q:close';
-      document.getElementById('ed-bar-center').textContent = '';
-      document.getElementById('ed-bar-right').textContent  = '';
+      document.getElementById('ed-bar-left').textContent   = 'f:find  r:replace  g:goto  n:linenos  o:toc';
+      document.getElementById('ed-bar-center').textContent = 'd:dark  c:config  e:export  s:stats  i:info';
+      document.getElementById('ed-bar-right').textContent  = 't:timer  p:pause  w:typewriter  q:close  ·ESC:exit·';
       return;
     }
     const s = State.settings;
@@ -433,9 +539,10 @@ const Editor = (() => {
   }
 
   return {
-    open, close, save, onInput, syncScroll, rehighlight, updateStatusBar, setMsg,
+    open, close, save, onInput, syncScroll, syncGutter, rehighlight, updateStatusBar, setMsg,
     saveCursorPos, applyLineNumbers,
-    toggleTypewriter, toggleLineNumbers, gotoLine,
+    toggleTypewriter, toggleLineNumbers, gotoLine, gotoLineGo, gotoLineClose,
+    applyLineMarker, applyInlineMarker, applyHeading,
     enterCmdMode, exitCmdMode, isCmdMode,
     searchOpen, searchClose, searchUpdate, searchNext, searchPrev, replaceOne, replaceAll,
     exportDoc

@@ -36,6 +36,7 @@
       <button id="ed-toc-btn" title="Table of contents (F11)">≡</button>
       <button id="ed-export-btn" title="Export">↓</button>
       <button id="ed-settings-btn" title="Settings (c)">⚙</button>
+      <button id="ed-more-btn" title="Format &amp; commands">Aa</button>
       <button id="ed-close-btn" title="Back to browser (Ctrl+Q / Esc)">✕</button>
     </div>
   </div>
@@ -61,6 +62,11 @@
     <button id="replace-all" hidden>All</button>
     <button id="search-close">✕</button>
   </div>
+  <div id="goto-bar" hidden>
+    <label>Line: <input id="goto-input" type="number" min="1" autocomplete="off"></label>
+    <button id="goto-go">Go</button>
+    <button id="goto-close">✕</button>
+  </div>
   <div id="ed-bar">
     <span id="ed-bar-left"></span>
     <span id="ed-bar-center"></span>
@@ -72,6 +78,37 @@
 <div id="export-menu" hidden>
   <button data-fmt="txt">Export as .txt</button>
   <button data-fmt="md">Export as .md</button>
+</div>
+
+<!-- Format & commands menu -->
+<div id="ed-more-menu" hidden>
+  <button id="ed-more-cmd">⌨ Command mode <span class="hint">Esc</span></button>
+  <div class="more-sep"></div>
+  <div class="more-label">Format selection</div>
+  <button data-markup="h1"></button>
+  <button data-markup="h2"></button>
+  <button data-markup="h3"></button>
+  <button data-markup="comment"></button>
+  <button data-markup="bold"></button>
+  <button data-markup="italic"></button>
+  <button data-markup="underline"></button>
+  <button data-markup="strike"></button>
+  <div class="more-sep"></div>
+  <div class="more-label">Commands</div>
+  <button data-cmd="find">Find <span class="hint">f</span></button>
+  <button data-cmd="replace">Find &amp; Replace <span class="hint">r</span></button>
+  <button data-cmd="goto">Go to line <span class="hint">g</span></button>
+  <button data-cmd="linenos">Line numbers <span class="hint">n</span></button>
+  <button data-cmd="toc">Table of contents <span class="hint">o</span></button>
+  <button data-cmd="dark">Dark / light <span class="hint">d</span></button>
+  <button data-cmd="config">Settings <span class="hint">c</span></button>
+  <button data-cmd="export">Export <span class="hint">e</span></button>
+  <button data-cmd="stats">Statistics <span class="hint">s</span></button>
+  <button data-cmd="info">File info <span class="hint">i</span></button>
+  <button data-cmd="timer">Timer <span class="hint">t</span></button>
+  <button data-cmd="pause">Timer pause <span class="hint">p</span></button>
+  <button data-cmd="typewriter">Typewriter <span class="hint">w</span></button>
+  <button data-cmd="close">Close document <span class="hint">q</span></button>
 </div>
 
 <!-- Settings dialog -->
@@ -155,8 +192,8 @@
       <label><input type="checkbox" data-key="interceptBrowserShortcuts">
         Override browser shortcuts
         <span class="hint" style="display:block;margin-top:2px">
-          Ctrl+T = typewriter &nbsp; Ctrl+N = new doc<br>
-          (browser: new tab / new window — disabled by default)
+          Ctrl+N = new doc (browser: new window)<br>
+          Note: Ctrl+T (new tab) cannot be intercepted — use ESC → w for typewriter
         </span>
       </label>
       <p class="hint" style="margin-top:10px">Syntax markers</p>

@@ -122,8 +122,8 @@ function onKeydown(e) {
   const focused = document.activeElement;
   const inInput = focused && (focused.tagName === 'INPUT' || focused.tagName === 'TEXTAREA' || focused.tagName === 'SELECT');
 
-  // Dark/light toggle — global
-  if (ctrl && lkey === 'd' && !inInput) {
+  // Dark/light toggle — global (works even in editor textarea)
+  if (ctrl && lkey === 'd') {
     e.preventDefault();
     State.settings.darkMode = !State.settings.darkMode;
     saveSettings();
@@ -160,12 +160,25 @@ function onKeydown(e) {
       e.preventDefault(); e.stopPropagation();
       Editor.exitCmdMode();
       switch (lkey) {
-        case 's': Stats.show();    break;
-        case 'i': showFileInfo();  break;
+        case 'f': Editor.searchOpen(false);  break;
+        case 'r': Editor.searchOpen(true);   break;
+        case 'g': Editor.gotoLine();         break;
+        case 'n': Editor.toggleLineNumbers(); break;
+        case 'd':
+          State.settings.darkMode = !State.settings.darkMode;
+          saveSettings(); applyTheme();
+          if (State.doc) Editor.rehighlight();
+          break;
+        case 'o': TOC.toggle();              break;
+        case 'c': Settings.show();           break;
+        case 'e': document.getElementById('export-menu').hidden = false; break;
+        case 's': Stats.show();              break;
+        case 'i': showFileInfo();            break;
         case 't': Timer.toggle();  Editor.updateStatusBar(); break;
         case 'p': Timer.isActive() ? Timer.pause() : Timer.toggle();
                   Editor.updateStatusBar(); break;
-        case 'q': Editor.close();  break;
+        case 'w': Editor.toggleTypewriter(); break;
+        case 'q': Editor.close();            break;
         // any other key: just exit cmd mode (already done above)
       }
       return;
@@ -179,14 +192,12 @@ function onKeydown(e) {
     if (ctrl && lkey === 'l')     { e.preventDefault(); e.stopPropagation(); Editor.toggleLineNumbers();  return; }
     if (e.altKey && lkey === 't') { e.preventDefault(); e.stopPropagation(); Timer.toggle(); Editor.updateStatusBar(); return; }
 
-    // Shortcuts that override browser defaults — only when option is enabled
-    const intercept = State.settings.interceptBrowserShortcuts;
-    if (intercept && ctrl && lkey === 't') { e.preventDefault(); e.stopPropagation(); Editor.toggleTypewriter(); return; }
     if (lkey === 'escape') {
       e.preventDefault(); e.stopPropagation();
       const openDlg = document.querySelector('dialog[open]');
       if (openDlg) { openDlg.close(); return; }
       if (!document.getElementById('search-bar').hidden) { Editor.searchClose(); return; }
+      if (!document.getElementById('goto-bar').hidden)   { Editor.gotoLineClose(); return; }
       // ESC enters command mode
       Editor.enterCmdMode();
       return;
@@ -285,7 +296,89 @@ async function init() {
   exportMenu.querySelectorAll('button').forEach(btn => {
     btn.addEventListener('click', () => { exportMenu.hidden = true; Editor.exportDoc(btn.dataset.fmt); });
   });
-  document.addEventListener('click', () => { exportMenu.hidden = true; });
+  document.addEventListener('click', () => { exportMenu.hidden = true; moreMenu.hidden = true; });
+
+  // Format & commands menu (Aa button)
+  const moreBtn  = document.getElementById('ed-more-btn');
+  const moreMenu = document.getElementById('ed-more-menu');
+
+  function openMoreMenu() {
+    const s  = State.settings;
+    const hm = s.headingMarker || '';
+    [1, 2, 3].forEach(lvl => {
+      const btn = moreMenu.querySelector(`[data-markup="h${lvl}"]`);
+      const p   = hm.repeat(lvl);
+      btn.innerHTML = hm
+        ? `<span>${p} H${lvl} ${p}</span>`
+        : `<span>H${lvl}</span>`;
+      btn.disabled = !hm;
+    });
+    const inline = [
+      ['comment',   s.commentMarker,   'Comment (line)'],
+      ['bold',      s.boldMarker,      'Bold'],
+      ['italic',    s.italicMarker,    'Italic'],
+      ['underline', s.underlineMarker, 'Underline'],
+      ['strike',    s.strikeMarker,    'Strike'],
+    ];
+    inline.forEach(([type, marker, label]) => {
+      const btn = moreMenu.querySelector(`[data-markup="${type}"]`);
+      btn.innerHTML = marker
+        ? `<span>${marker} ${label}</span>`
+        : `<span>${label}</span>`;
+      btn.disabled = !marker;
+    });
+    moreMenu.hidden = false;
+  }
+
+  moreBtn.addEventListener('click', e => { e.stopPropagation(); moreMenu.hidden ? openMoreMenu() : (moreMenu.hidden = true); });
+
+  document.getElementById('ed-more-cmd').addEventListener('click', () => {
+    moreMenu.hidden = true;
+    Editor.enterCmdMode();
+  });
+
+  moreMenu.querySelectorAll('[data-markup]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      moreMenu.hidden = true;
+      const s = State.settings;
+      switch (btn.dataset.markup) {
+        case 'h1':        Editor.applyHeading(1);                    break;
+        case 'h2':        Editor.applyHeading(2);                    break;
+        case 'h3':        Editor.applyHeading(3);                    break;
+        case 'comment':   Editor.applyLineMarker(s.commentMarker);   break;
+        case 'bold':      Editor.applyInlineMarker(s.boldMarker);    break;
+        case 'italic':    Editor.applyInlineMarker(s.italicMarker);  break;
+        case 'underline': Editor.applyInlineMarker(s.underlineMarker); break;
+        case 'strike':    Editor.applyInlineMarker(s.strikeMarker);  break;
+      }
+    });
+  });
+
+  moreMenu.querySelectorAll('[data-cmd]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      moreMenu.hidden = true;
+      switch (btn.dataset.cmd) {
+        case 'find':       Editor.searchOpen(false); break;
+        case 'replace':    Editor.searchOpen(true);  break;
+        case 'goto':       Editor.gotoLine();        break;
+        case 'linenos':    Editor.toggleLineNumbers(); break;
+        case 'toc':        TOC.toggle();             break;
+        case 'dark':
+          State.settings.darkMode = !State.settings.darkMode;
+          saveSettings(); applyTheme();
+          if (State.doc) Editor.rehighlight();
+          break;
+        case 'config':     Settings.show();          break;
+        case 'export':     exportMenu.hidden = false; break;
+        case 'stats':      Stats.show();             break;
+        case 'info':       showFileInfo();           break;
+        case 'timer':      Timer.toggle(); Editor.updateStatusBar(); break;
+        case 'pause':      Timer.isActive() ? Timer.pause() : Timer.toggle(); Editor.updateStatusBar(); break;
+        case 'typewriter': Editor.toggleTypewriter(); break;
+        case 'close':      Editor.close();           break;
+      }
+    });
+  });
 
   // Search bar
   document.getElementById('search-input').addEventListener('input',  () => Editor.searchUpdate());
@@ -298,6 +391,14 @@ async function init() {
     if (e.key === 'Enter' && e.shiftKey) Editor.searchPrev();
     else if (e.key === 'Enter')          Editor.searchNext();
     else if (e.key === 'Escape')         Editor.searchClose();
+  });
+
+  // Goto bar
+  document.getElementById('goto-go').addEventListener('click',    () => Editor.gotoLineGo());
+  document.getElementById('goto-close').addEventListener('click', () => Editor.gotoLineClose());
+  document.getElementById('goto-input').addEventListener('keydown', e => {
+    if (e.key === 'Enter')  Editor.gotoLineGo();
+    else if (e.key === 'Escape') Editor.gotoLineClose();
   });
 
   // Dialog close buttons
@@ -317,6 +418,12 @@ async function init() {
   // Save cursor + dirty guard on unload
   document.addEventListener('visibilitychange', () => {
     if (document.hidden && State.doc) Editor.saveCursorPos();
+  });
+  window.addEventListener('resize', () => {
+    if (State.doc) { Editor.syncGutter(); Editor.syncScroll(); }
+  });
+  document.addEventListener('fullscreenchange', () => {
+    if (State.doc) { Editor.syncGutter(); Editor.syncScroll(); }
   });
   window.addEventListener('beforeunload', e => {
     if (State.dirty) { e.preventDefault(); e.returnValue = ''; }
