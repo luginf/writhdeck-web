@@ -41,7 +41,9 @@ const State = {
     timerShow: true,
     statusLeft: 'filename dirty words',
     statusCenter: '',
-    statusRight: 'goal clock timer'
+    statusRight: 'goal clock timer',
+    lineNumbers: false,
+    interceptBrowserShortcuts: false
   },
 
   favorites: [],  // [id, ...]

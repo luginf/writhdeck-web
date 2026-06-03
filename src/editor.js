@@ -4,10 +4,11 @@ const Editor = (() => {
   const ta  = () => document.getElementById('ed-input');
   const pre = () => document.getElementById('ed-highlight');
 
-  let _autosaveId  = null;
-  let _clockId     = null;
-  let _tocRefresh  = null;
-  let _cmdMode     = false;
+  let _autosaveId     = null;
+  let _clockId        = null;
+  let _tocRefresh     = null;
+  let _cmdMode        = false;
+  let _typewriter     = false;
   let _wc = 0;
 
   // ── Open / close ──────────────────────────────────────────────────────────
@@ -45,20 +46,23 @@ const Editor = (() => {
     const offset = State.cursors[doc.id] || 0;
     input.setSelectionRange(offset, offset);
 
+    _typewriter = false;
+    document.getElementById('editor').classList.remove('typewriter');
     rehighlight();
     syncScroll();
+    applyLineNumbers();
     updateStatusBar();
     input.focus();
     _wc = wordCount(input.value);
 
     startAutosave();
     startClock();
-    pushRecent(doc.id);
+    if (!doc.virtual) pushRecent(doc.id);
     Browser.render();
   }
 
   async function close() {
-    if (State.dirty) {
+    if (State.dirty && !State.doc.isIni) {
       const ok = confirm(`Save "${State.doc.name}" before closing?`);
       if (ok) await save();
     }
@@ -79,7 +83,31 @@ const Editor = (() => {
 
   async function save() {
     if (!State.doc) return;
-    State.doc.content  = ta().value;
+    State.doc.content = ta().value;
+
+    // Virtual INI doc — parse and apply, don't write to docs store
+    if (State.doc.isIni) {
+      try {
+        const { settings, schemes } = INI.parseIni(State.doc.content);
+        Object.assign(State.settings, settings);
+        for (const [n, sc] of Object.entries(schemes)) {
+          customSchemes[n] = SCHEMES[n] ? { ...SCHEMES[n], ...sc } : sc;
+        }
+        await saveSettings();   // re-generates canonical INI text → IDB
+        State.doc.content = State.iniText; // reflect normalised output
+        ta().value = State.iniText;
+        rehighlight();
+        applyTheme();
+        State.dirty = false;
+        setMsg('Settings applied');
+        Browser.render();
+      } catch (e) {
+        setMsg('Parse error');
+        console.error(e);
+      }
+      return;
+    }
+
     State.doc.modified = Date.now();
 
     if (State.doc.fileHandle) {
@@ -121,10 +149,9 @@ const Editor = (() => {
 
   function onInput() {
     rehighlight();
-    if (!State.dirty) {
-      State.dirty = true;
-    }
-    // Debounced TOC refresh
+    if (!State.dirty) State.dirty = true;
+    typewriterScroll();
+    updateLineNumbers();
     if (_tocRefresh) clearTimeout(_tocRefresh);
     _tocRefresh = setTimeout(() => TOC.refresh(), 600);
     // Hemingway mode: prevent delete
@@ -141,6 +168,8 @@ const Editor = (() => {
   function syncScroll() {
     pre().scrollTop  = ta().scrollTop;
     pre().scrollLeft = ta().scrollLeft;
+    const ln = document.getElementById('ed-linenos');
+    if (ln && !ln.hidden) ln.scrollTop = ta().scrollTop;
   }
 
   function saveCursorPos() {
@@ -150,6 +179,68 @@ const Editor = (() => {
   }
 
   // ── Status bar ────────────────────────────────────────────────────────────
+
+  // ── Typewriter mode ───────────────────────────────────────────────────────
+
+  function toggleTypewriter() {
+    _typewriter = !_typewriter;
+    document.getElementById('editor').classList.toggle('typewriter', _typewriter);
+    setMsg(_typewriter ? 'Typewriter mode on' : 'Typewriter mode off');
+    if (_typewriter) typewriterScroll();
+  }
+
+  function typewriterScroll() {
+    if (!_typewriter) return;
+    const input = ta();
+    const text  = input.value.substring(0, input.selectionStart);
+    const line  = text.split('\n').length - 1;
+    const lh    = parseFloat(getComputedStyle(input).lineHeight) || 20;
+    input.scrollTop = Math.max(0, line * lh - input.clientHeight / 2 + lh / 2);
+  }
+
+  // ── Line numbers ──────────────────────────────────────────────────────────
+
+  function updateLineNumbers() {
+    const el = document.getElementById('ed-linenos');
+    if (!el || el.hidden) return;
+    const count = (ta().value.match(/\n/g) || []).length + 1;
+    el.textContent = Array.from({ length: count }, (_, i) => i + 1).join('\n');
+    el.scrollTop = ta().scrollTop;
+  }
+
+  function applyLineNumbers() {
+    const el = document.getElementById('ed-linenos');
+    if (!el) return;
+    const show = State.settings.lineNumbers;
+    el.hidden = !show;
+    if (show) updateLineNumbers();
+  }
+
+  function toggleLineNumbers() {
+    State.settings.lineNumbers = !State.settings.lineNumbers;
+    applyLineNumbers();
+    saveSettings();
+    setMsg(State.settings.lineNumbers ? 'Line numbers on' : 'Line numbers off');
+  }
+
+  // ── Go to line ────────────────────────────────────────────────────────────
+
+  function gotoLine() {
+    const raw = prompt('Go to line:');
+    if (!raw) return;
+    const n = parseInt(raw, 10);
+    if (isNaN(n) || n < 1) return;
+    const input  = ta();
+    const lines  = input.value.split('\n');
+    let offset = 0;
+    for (let i = 0; i < Math.min(n - 1, lines.length); i++) {
+      offset += lines[i].length + 1;
+    }
+    input.focus();
+    input.setSelectionRange(offset, offset);
+    const lh = parseFloat(getComputedStyle(input).lineHeight) || 20;
+    input.scrollTop = (n - 1) * lh - input.clientHeight / 3;
+  }
 
   // ── Command mode (ESC) ───────────────────────────────────────────────────
 
@@ -331,7 +422,8 @@ const Editor = (() => {
 
   return {
     open, close, save, onInput, syncScroll, rehighlight, updateStatusBar, setMsg,
-    saveCursorPos,
+    saveCursorPos, applyLineNumbers,
+    toggleTypewriter, toggleLineNumbers, gotoLine,
     enterCmdMode, exitCmdMode, isCmdMode,
     searchOpen, searchClose, searchUpdate, searchNext, searchPrev, replaceOne, replaceAll,
     exportDoc

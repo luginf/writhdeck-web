@@ -3,6 +3,15 @@
 const TOC = (() => {
   let _visible = false;
 
+  function _show(visible) {
+    const panel = document.getElementById('toc-panel');
+    if (!panel) return;
+    // Use style.display instead of hidden attribute — avoids Firefox UA cascade issues
+    panel.style.display = visible ? 'flex' : 'none';
+    const btn = document.getElementById('ed-toc-btn');
+    if (btn) btn.classList.toggle('active', visible);
+  }
+
   function parse(text, s) {
     const entries = [];
     text.split('\n').forEach((line, idx) => {
@@ -34,6 +43,7 @@ const TOC = (() => {
   function render() {
     const ta      = document.getElementById('ed-input');
     const list    = document.getElementById('toc-list');
+    if (!ta || !list) return;
     const entries = parse(ta.value, State.settings);
     list.innerHTML = '';
     if (!entries.length) {
@@ -60,18 +70,14 @@ const TOC = (() => {
   }
 
   function toggle() {
-    const panel = document.getElementById('toc-panel');
     _visible = !_visible;
-    panel.hidden = !_visible;
+    _show(_visible);
     if (_visible) render();
-    // Sync TOC button state
-    document.getElementById('ed-toc-btn').classList.toggle('active', _visible);
   }
 
   function hide() {
     _visible = false;
-    document.getElementById('toc-panel').hidden = true;
-    document.getElementById('ed-toc-btn').classList.remove('active');
+    _show(false);
   }
 
   function refresh() { if (_visible) render(); }

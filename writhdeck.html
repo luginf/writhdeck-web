@@ -160,6 +160,28 @@ input[type="color"] { width: 40px; height: 24px; padding: 1px; border: 1px solid
   background: var(--bg);
 }
 
+/* Line numbers */
+#ed-linenos {
+  flex-shrink: 0;
+  width: 40px;
+  background: var(--bg-bar);
+  border-right: 1px solid var(--bg2);
+  overflow: hidden;
+  text-align: right;
+  padding: var(--margin-y) 6px;
+  font-family: var(--font-family);
+  font-size: var(--font-size);
+  line-height: var(--line-spacing);
+  color: var(--fg-bar);
+  user-select: none;
+  pointer-events: none;
+  white-space: pre;
+}
+#ed-linenos[hidden] { display: none; }
+
+/* Typewriter mode — subtle indicator on status bar */
+#editor.typewriter #ed-bar { border-top: 2px solid var(--heading); }
+
 /* TOC side panel */
 #toc-panel {
   width: 220px;
@@ -445,6 +467,7 @@ dialog::backdrop { background: rgba(0,0,0,0.5); }
     </div>
   </div>
   <div id="ed-body">
+    <div id="ed-linenos" hidden></div>
     <div id="ed-wrap">
       <pre id="ed-highlight" aria-hidden="true"></pre>
       <textarea id="ed-input" spellcheck="false" autocomplete="off" autocorrect="off" autocapitalize="off"></textarea>
@@ -553,6 +576,16 @@ dialog::backdrop { background: rgba(0,0,0,0.5); }
       <label>Center<input type="text" data-key="statusCenter"></label>
       <label>Right<input type="text" data-key="statusRight"></label>
       <p class="hint">Tokens: filename dirty words chars goal clock timer</p>
+      <p class="hint" style="margin-top:10px">Editor options</p>
+      <label><input type="checkbox" data-key="lineNumbers"> Line numbers (Ctrl+L)</label>
+      <p class="hint" style="margin-top:10px">Keyboard shortcuts</p>
+      <label><input type="checkbox" data-key="interceptBrowserShortcuts">
+        Override browser shortcuts
+        <span class="hint" style="display:block;margin-top:2px">
+          Ctrl+T = typewriter &nbsp; Ctrl+N = new doc<br>
+          (browser: new tab / new window — disabled by default)
+        </span>
+      </label>
       <p class="hint" style="margin-top:10px">Syntax markers</p>
       <label>Heading marker<input type="text" data-key="headingMarker" maxlength="4"></label>
       <label>Comment marker<input type="text" data-key="commentMarker" maxlength="4"></label>
@@ -803,7 +836,9 @@ const State = {
     timerShow: true,
     statusLeft: 'filename dirty words',
     statusCenter: '',
-    statusRight: 'goal clock timer'
+    statusRight: 'goal clock timer',
+    lineNumbers: false,
+    interceptBrowserShortcuts: false
   },
 
   favorites: [],  // [id, ...]
@@ -983,7 +1018,9 @@ const INI_TO_SETTINGS = {
   status_left:          ['statusLeft',       'str'],
   status_center:        ['statusCenter',     'str'],
   status_right:         ['statusRight',      'str'],
-  cursor_restore:       ['cursorRestore',    'bool'],
+  cursor_restore:             ['cursorRestore',             'bool'],
+  line_numbers:               ['lineNumbers',               'bool'],
+  intercept_browser_shortcuts:['interceptBrowserShortcuts', 'bool'],
 };
 
 const SETTINGS_TO_INI = Object.fromEntries(
@@ -1119,7 +1156,9 @@ function writeIni(s, allSchemes) {
 
   out += '= behaviour =' + nl + '[behaviour]' + nl;
   out += `hemingway_mode  = ${b(s.hemingwayMode)}` + nl;
-  out += `cursor_restore  = ${b(s.cursorRestore !== false)}` + nl;
+  out += `cursor_restore               = ${b(s.cursorRestore !== false)}` + nl;
+  out += `line_numbers                 = ${b(s.lineNumbers)}` + nl;
+  out += `intercept_browser_shortcuts  = ${b(s.interceptBrowserShortcuts)}` + nl;
   out += `dark_mode       = ${b(s.darkMode)}` + nl;
   out += nl;
 
@@ -1452,10 +1491,11 @@ const Editor = (() => {
   const ta  = () => document.getElementById('ed-input');
   const pre = () => document.getElementById('ed-highlight');
 
-  let _autosaveId  = null;
-  let _clockId     = null;
-  let _tocRefresh  = null;
-  let _cmdMode     = false;
+  let _autosaveId     = null;
+  let _clockId        = null;
+  let _tocRefresh     = null;
+  let _cmdMode        = false;
+  let _typewriter     = false;
   let _wc = 0;
 
   // ── Open / close ──────────────────────────────────────────────────────────
@@ -1493,20 +1533,23 @@ const Editor = (() => {
     const offset = State.cursors[doc.id] || 0;
     input.setSelectionRange(offset, offset);
 
+    _typewriter = false;
+    document.getElementById('editor').classList.remove('typewriter');
     rehighlight();
     syncScroll();
+    applyLineNumbers();
     updateStatusBar();
     input.focus();
     _wc = wordCount(input.value);
 
     startAutosave();
     startClock();
-    pushRecent(doc.id);
+    if (!doc.virtual) pushRecent(doc.id);
     Browser.render();
   }
 
   async function close() {
-    if (State.dirty) {
+    if (State.dirty && !State.doc.isIni) {
       const ok = confirm(`Save "${State.doc.name}" before closing?`);
       if (ok) await save();
     }
@@ -1527,7 +1570,31 @@ const Editor = (() => {
 
   async function save() {
     if (!State.doc) return;
-    State.doc.content  = ta().value;
+    State.doc.content = ta().value;
+
+    // Virtual INI doc — parse and apply, don't write to docs store
+    if (State.doc.isIni) {
+      try {
+        const { settings, schemes } = INI.parseIni(State.doc.content);
+        Object.assign(State.settings, settings);
+        for (const [n, sc] of Object.entries(schemes)) {
+          customSchemes[n] = SCHEMES[n] ? { ...SCHEMES[n], ...sc } : sc;
+        }
+        await saveSettings();   // re-generates canonical INI text → IDB
+        State.doc.content = State.iniText; // reflect normalised output
+        ta().value = State.iniText;
+        rehighlight();
+        applyTheme();
+        State.dirty = false;
+        setMsg('Settings applied');
+        Browser.render();
+      } catch (e) {
+        setMsg('Parse error');
+        console.error(e);
+      }
+      return;
+    }
+
     State.doc.modified = Date.now();
 
     if (State.doc.fileHandle) {
@@ -1569,10 +1636,9 @@ const Editor = (() => {
 
   function onInput() {
     rehighlight();
-    if (!State.dirty) {
-      State.dirty = true;
-    }
-    // Debounced TOC refresh
+    if (!State.dirty) State.dirty = true;
+    typewriterScroll();
+    updateLineNumbers();
     if (_tocRefresh) clearTimeout(_tocRefresh);
     _tocRefresh = setTimeout(() => TOC.refresh(), 600);
     // Hemingway mode: prevent delete
@@ -1589,6 +1655,8 @@ const Editor = (() => {
   function syncScroll() {
     pre().scrollTop  = ta().scrollTop;
     pre().scrollLeft = ta().scrollLeft;
+    const ln = document.getElementById('ed-linenos');
+    if (ln && !ln.hidden) ln.scrollTop = ta().scrollTop;
   }
 
   function saveCursorPos() {
@@ -1598,6 +1666,68 @@ const Editor = (() => {
   }
 
   // ── Status bar ────────────────────────────────────────────────────────────
+
+  // ── Typewriter mode ───────────────────────────────────────────────────────
+
+  function toggleTypewriter() {
+    _typewriter = !_typewriter;
+    document.getElementById('editor').classList.toggle('typewriter', _typewriter);
+    setMsg(_typewriter ? 'Typewriter mode on' : 'Typewriter mode off');
+    if (_typewriter) typewriterScroll();
+  }
+
+  function typewriterScroll() {
+    if (!_typewriter) return;
+    const input = ta();
+    const text  = input.value.substring(0, input.selectionStart);
+    const line  = text.split('\n').length - 1;
+    const lh    = parseFloat(getComputedStyle(input).lineHeight) || 20;
+    input.scrollTop = Math.max(0, line * lh - input.clientHeight / 2 + lh / 2);
+  }
+
+  // ── Line numbers ──────────────────────────────────────────────────────────
+
+  function updateLineNumbers() {
+    const el = document.getElementById('ed-linenos');
+    if (!el || el.hidden) return;
+    const count = (ta().value.match(/\n/g) || []).length + 1;
+    el.textContent = Array.from({ length: count }, (_, i) => i + 1).join('\n');
+    el.scrollTop = ta().scrollTop;
+  }
+
+  function applyLineNumbers() {
+    const el = document.getElementById('ed-linenos');
+    if (!el) return;
+    const show = State.settings.lineNumbers;
+    el.hidden = !show;
+    if (show) updateLineNumbers();
+  }
+
+  function toggleLineNumbers() {
+    State.settings.lineNumbers = !State.settings.lineNumbers;
+    applyLineNumbers();
+    saveSettings();
+    setMsg(State.settings.lineNumbers ? 'Line numbers on' : 'Line numbers off');
+  }
+
+  // ── Go to line ────────────────────────────────────────────────────────────
+
+  function gotoLine() {
+    const raw = prompt('Go to line:');
+    if (!raw) return;
+    const n = parseInt(raw, 10);
+    if (isNaN(n) || n < 1) return;
+    const input  = ta();
+    const lines  = input.value.split('\n');
+    let offset = 0;
+    for (let i = 0; i < Math.min(n - 1, lines.length); i++) {
+      offset += lines[i].length + 1;
+    }
+    input.focus();
+    input.setSelectionRange(offset, offset);
+    const lh = parseFloat(getComputedStyle(input).lineHeight) || 20;
+    input.scrollTop = (n - 1) * lh - input.clientHeight / 3;
+  }
 
   // ── Command mode (ESC) ───────────────────────────────────────────────────
 
@@ -1779,7 +1909,8 @@ const Editor = (() => {
 
   return {
     open, close, save, onInput, syncScroll, rehighlight, updateStatusBar, setMsg,
-    saveCursorPos,
+    saveCursorPos, applyLineNumbers,
+    toggleTypewriter, toggleLineNumbers, gotoLine,
     enterCmdMode, exitCmdMode, isCmdMode,
     searchOpen, searchClose, searchUpdate, searchNext, searchPrev, replaceOne, replaceAll,
     exportDoc
@@ -1809,6 +1940,9 @@ const Browser = (() => {
     if (favDocs.length) {
       section('Favorites', favDocs, list, {});
     }
+
+    // writhdeck.ini — always visible
+    iniRow(list);
 
     // Watched folder section
     if (hasFSA && State.dirHandle) {
@@ -2014,6 +2148,34 @@ const Browser = (() => {
       sp.addEventListener('click', fn);
       bar.appendChild(sp);
     });
+  }
+
+  function iniRow(container) {
+    const row = document.createElement('div');
+    row.className = 'br-item';
+    if (State.doc && State.doc.isIni) row.classList.add('selected');
+
+    const ico = document.createElement('span');
+    ico.style.cssText = 'font-size:0.8em;color:var(--fg-bar);flex-shrink:0;width:1em;';
+    ico.textContent = '⚙';
+
+    const name = document.createElement('span');
+    name.className = 'br-item-name';
+    name.textContent = 'writhdeck.ini';
+    name.style.color = 'var(--fg-bar)';
+
+    row.appendChild(ico);
+    row.appendChild(name);
+    row.addEventListener('click', () => {
+      Editor.open({
+        id: '__ini__',
+        name: 'writhdeck.ini',
+        content: State.iniText || '',
+        isIni: true,
+        virtual: true
+      });
+    });
+    container.appendChild(row);
   }
 
   async function openFolder() {
@@ -2306,6 +2468,7 @@ const Settings = (() => {
     applyTheme();
     if (State.doc) {
       Editor.rehighlight();
+      Editor.applyLineNumbers();
       Editor.updateStatusBar();
     }
   }
@@ -2718,11 +2881,17 @@ function onKeydown(e) {
       return;
     }
 
-    if (ctrl && lkey === 's')     { e.preventDefault(); e.stopPropagation(); Editor.save();            return; }
-    if (ctrl && lkey === 'q')     { e.preventDefault(); e.stopPropagation(); Editor.close();           return; }
-    if (ctrl && lkey === 'f')     { e.preventDefault(); e.stopPropagation(); Editor.searchOpen(false); return; }
-    if (ctrl && lkey === 'h')     { e.preventDefault(); e.stopPropagation(); Editor.searchOpen(true);  return; }
+    if (ctrl && lkey === 's')     { e.preventDefault(); e.stopPropagation(); Editor.save();              return; }
+    if (ctrl && lkey === 'q')     { e.preventDefault(); e.stopPropagation(); Editor.close();             return; }
+    if (ctrl && lkey === 'f')     { e.preventDefault(); e.stopPropagation(); Editor.searchOpen(false);   return; }
+    if (ctrl && lkey === 'h')     { e.preventDefault(); e.stopPropagation(); Editor.searchOpen(true);    return; }
+    if (ctrl && lkey === 'g')     { e.preventDefault(); e.stopPropagation(); Editor.gotoLine();          return; }
+    if (ctrl && lkey === 'l')     { e.preventDefault(); e.stopPropagation(); Editor.toggleLineNumbers();  return; }
     if (e.altKey && lkey === 't') { e.preventDefault(); e.stopPropagation(); Timer.toggle(); Editor.updateStatusBar(); return; }
+
+    // Shortcuts that override browser defaults — only when option is enabled
+    const intercept = State.settings.interceptBrowserShortcuts;
+    if (intercept && ctrl && lkey === 't') { e.preventDefault(); e.stopPropagation(); Editor.toggleTypewriter(); return; }
     if (lkey === 'escape') {
       e.preventDefault(); e.stopPropagation();
       const openDlg = document.querySelector('dialog[open]');
@@ -2745,6 +2914,10 @@ function onKeydown(e) {
     if (lkey === 'w' && Browser.hasFSA) { e.preventDefault(); Browser.openFolder();   return; }
     if (lkey === 's') { e.preventDefault(); Stats.show();            return; }
     if (lkey === 'c') { e.preventDefault(); Settings.show();         return; }
+    // Override browser Ctrl+N → new document (only when option enabled)
+    if (State.settings.interceptBrowserShortcuts && ctrl && lkey === 'n') {
+      e.preventDefault(); e.stopPropagation(); Browser.newDoc(); return;
+    }
   }
 }
 

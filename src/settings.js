@@ -159,6 +159,7 @@ const Settings = (() => {
     applyTheme();
     if (State.doc) {
       Editor.rehighlight();
+      Editor.applyLineNumbers();
       Editor.updateStatusBar();
     }
   }

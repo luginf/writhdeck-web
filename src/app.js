@@ -171,11 +171,17 @@ function onKeydown(e) {
       return;
     }
 
-    if (ctrl && lkey === 's')     { e.preventDefault(); e.stopPropagation(); Editor.save();            return; }
-    if (ctrl && lkey === 'q')     { e.preventDefault(); e.stopPropagation(); Editor.close();           return; }
-    if (ctrl && lkey === 'f')     { e.preventDefault(); e.stopPropagation(); Editor.searchOpen(false); return; }
-    if (ctrl && lkey === 'h')     { e.preventDefault(); e.stopPropagation(); Editor.searchOpen(true);  return; }
+    if (ctrl && lkey === 's')     { e.preventDefault(); e.stopPropagation(); Editor.save();              return; }
+    if (ctrl && lkey === 'q')     { e.preventDefault(); e.stopPropagation(); Editor.close();             return; }
+    if (ctrl && lkey === 'f')     { e.preventDefault(); e.stopPropagation(); Editor.searchOpen(false);   return; }
+    if (ctrl && lkey === 'h')     { e.preventDefault(); e.stopPropagation(); Editor.searchOpen(true);    return; }
+    if (ctrl && lkey === 'g')     { e.preventDefault(); e.stopPropagation(); Editor.gotoLine();          return; }
+    if (ctrl && lkey === 'l')     { e.preventDefault(); e.stopPropagation(); Editor.toggleLineNumbers();  return; }
     if (e.altKey && lkey === 't') { e.preventDefault(); e.stopPropagation(); Timer.toggle(); Editor.updateStatusBar(); return; }
+
+    // Shortcuts that override browser defaults — only when option is enabled
+    const intercept = State.settings.interceptBrowserShortcuts;
+    if (intercept && ctrl && lkey === 't') { e.preventDefault(); e.stopPropagation(); Editor.toggleTypewriter(); return; }
     if (lkey === 'escape') {
       e.preventDefault(); e.stopPropagation();
       const openDlg = document.querySelector('dialog[open]');
@@ -198,6 +204,10 @@ function onKeydown(e) {
     if (lkey === 'w' && Browser.hasFSA) { e.preventDefault(); Browser.openFolder();   return; }
     if (lkey === 's') { e.preventDefault(); Stats.show();            return; }
     if (lkey === 'c') { e.preventDefault(); Settings.show();         return; }
+    // Override browser Ctrl+N → new document (only when option enabled)
+    if (State.settings.interceptBrowserShortcuts && ctrl && lkey === 'n') {
+      e.preventDefault(); e.stopPropagation(); Browser.newDoc(); return;
+    }
   }
 }
 

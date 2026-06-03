@@ -21,6 +21,9 @@ const Browser = (() => {
       section('Favorites', favDocs, list, {});
     }
 
+    // writhdeck.ini — always visible
+    iniRow(list);
+
     // Watched folder section
     if (hasFSA && State.dirHandle) {
       folderSection(list);
@@ -225,6 +228,34 @@ const Browser = (() => {
       sp.addEventListener('click', fn);
       bar.appendChild(sp);
     });
+  }
+
+  function iniRow(container) {
+    const row = document.createElement('div');
+    row.className = 'br-item';
+    if (State.doc && State.doc.isIni) row.classList.add('selected');
+
+    const ico = document.createElement('span');
+    ico.style.cssText = 'font-size:0.8em;color:var(--fg-bar);flex-shrink:0;width:1em;';
+    ico.textContent = '⚙';
+
+    const name = document.createElement('span');
+    name.className = 'br-item-name';
+    name.textContent = 'writhdeck.ini';
+    name.style.color = 'var(--fg-bar)';
+
+    row.appendChild(ico);
+    row.appendChild(name);
+    row.addEventListener('click', () => {
+      Editor.open({
+        id: '__ini__',
+        name: 'writhdeck.ini',
+        content: State.iniText || '',
+        isIni: true,
+        virtual: true
+      });
+    });
+    container.appendChild(row);
   }
 
   async function openFolder() {

@@ -40,6 +40,7 @@
     </div>
   </div>
   <div id="ed-body">
+    <div id="ed-linenos" hidden></div>
     <div id="ed-wrap">
       <pre id="ed-highlight" aria-hidden="true"></pre>
       <textarea id="ed-input" spellcheck="false" autocomplete="off" autocorrect="off" autocapitalize="off"></textarea>
@@ -148,6 +149,16 @@
       <label>Center<input type="text" data-key="statusCenter"></label>
       <label>Right<input type="text" data-key="statusRight"></label>
       <p class="hint">Tokens: filename dirty words chars goal clock timer</p>
+      <p class="hint" style="margin-top:10px">Editor options</p>
+      <label><input type="checkbox" data-key="lineNumbers"> Line numbers (Ctrl+L)</label>
+      <p class="hint" style="margin-top:10px">Keyboard shortcuts</p>
+      <label><input type="checkbox" data-key="interceptBrowserShortcuts">
+        Override browser shortcuts
+        <span class="hint" style="display:block;margin-top:2px">
+          Ctrl+T = typewriter &nbsp; Ctrl+N = new doc<br>
+          (browser: new tab / new window — disabled by default)
+        </span>
+      </label>
       <p class="hint" style="margin-top:10px">Syntax markers</p>
       <label>Heading marker<input type="text" data-key="headingMarker" maxlength="4"></label>
       <label>Comment marker<input type="text" data-key="commentMarker" maxlength="4"></label>

@@ -31,7 +31,9 @@ const INI_TO_SETTINGS = {
   status_left:          ['statusLeft',       'str'],
   status_center:        ['statusCenter',     'str'],
   status_right:         ['statusRight',      'str'],
-  cursor_restore:       ['cursorRestore',    'bool'],
+  cursor_restore:             ['cursorRestore',             'bool'],
+  line_numbers:               ['lineNumbers',               'bool'],
+  intercept_browser_shortcuts:['interceptBrowserShortcuts', 'bool'],
 };
 
 const SETTINGS_TO_INI = Object.fromEntries(
@@ -167,7 +169,9 @@ function writeIni(s, allSchemes) {
 
   out += '= behaviour =' + nl + '[behaviour]' + nl;
   out += `hemingway_mode  = ${b(s.hemingwayMode)}` + nl;
-  out += `cursor_restore  = ${b(s.cursorRestore !== false)}` + nl;
+  out += `cursor_restore               = ${b(s.cursorRestore !== false)}` + nl;
+  out += `line_numbers                 = ${b(s.lineNumbers)}` + nl;
+  out += `intercept_browser_shortcuts  = ${b(s.interceptBrowserShortcuts)}` + nl;
   out += `dark_mode       = ${b(s.darkMode)}` + nl;
   out += nl;
 

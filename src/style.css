@@ -153,6 +153,28 @@ input[type="color"] { width: 40px; height: 24px; padding: 1px; border: 1px solid
   background: var(--bg);
 }
 
+/* Line numbers */
+#ed-linenos {
+  flex-shrink: 0;
+  width: 40px;
+  background: var(--bg-bar);
+  border-right: 1px solid var(--bg2);
+  overflow: hidden;
+  text-align: right;
+  padding: var(--margin-y) 6px;
+  font-family: var(--font-family);
+  font-size: var(--font-size);
+  line-height: var(--line-spacing);
+  color: var(--fg-bar);
+  user-select: none;
+  pointer-events: none;
+  white-space: pre;
+}
+#ed-linenos[hidden] { display: none; }
+
+/* Typewriter mode — subtle indicator on status bar */
+#editor.typewriter #ed-bar { border-top: 2px solid var(--heading); }
+
 /* TOC side panel */
 #toc-panel {
   width: 220px;
