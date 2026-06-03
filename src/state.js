@@ -71,7 +71,10 @@ async function loadState() {
     // Normal path — INI is the source of truth
     const { settings, schemes } = INI.parseIni(iniText);
     Object.assign(State.settings, settings);
-    Object.assign(customSchemes, schemes);
+    // Only load non-built-in schemes: built-in colors come from code, not IDB
+    for (const [n, sc] of Object.entries(schemes)) {
+      if (!SCHEMES[n]) customSchemes[n] = sc;
+    }
     State.customSchemes = { ...customSchemes };
     State.iniText = iniText;
   } else if (oldSettings) {

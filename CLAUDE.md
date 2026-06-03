@@ -53,7 +53,7 @@ All CSS uses `var(--*)` — never hardcoded colors. Call `applyTheme()` after an
 
 `#ed-input` (textarea, transparent bg, z-index 1) receives all input. `#ed-highlight` (pre, `pointer-events:none`, absolute overlay) shows colorized HTML from `highlight()`. Both must share identical font/padding/line-height — enforced in CSS. `Editor.syncScroll()` keeps their scroll positions in sync.
 
-`highlight(text, settings)` processes text line-by-line: heading lines → `.hl-heading`, comment lines → `.hl-comment`, inline markers → `.hl-markup`. Returns HTML string with trailing `\n`.
+`highlight(text, settings, searchTerm?, paraStart?, paraEnd?)` processes text line-by-line: heading lines → `.hl-heading`, comment lines → `.hl-comment`, inline markers → `.hl-markup`. When `searchTerm` is provided, matches are wrapped in `.hl-search` (injected into text nodes only, skipping HTML tags). When `paraStart`/`paraEnd` are provided (typewriter mode), lines outside the range are wrapped in `.hl-dim`. Returns HTML string with trailing `\n`.
 
 ### Color schemes
 
@@ -71,7 +71,11 @@ To add a built-in scheme: add an entry to `SCHEMES` in `schemes.js`.
 
 ### Keyboard shortcuts
 
-Handled centrally in `onKeydown()` (`app.js`). Shortcuts active in editor: `Ctrl+S` save, `Ctrl+Q` close, `Ctrl+F` find, `Ctrl+H` find+replace, `Ctrl+Shift+T` TOC, `Alt+T` timer toggle, `Ctrl+D` dark/light, `Escape` close dialogs. Browser: `n` new, `s` stats, `c` config.
+Handled centrally in `onKeydown()` (`app.js`). Editor: `Ctrl+S` save, `Ctrl+Q` close, `Ctrl+F` find, `Ctrl+H` replace, `Ctrl+G` goto line, `Ctrl+L` line numbers, `Ctrl+D` dark/light, `Alt+T` timer, `Alt+C`/`Esc` command mode, `F11` TOC, `Alt+Enter` fullscreen. Browser: `n` new, `s` stats, `c` settings. Global override (when `interceptBrowserShortcuts`): `Ctrl+N` new doc.
+
+**Command mode** (`Alt+C` / `Esc`): enters a modal state where the next keystroke triggers a command — `f` find, `r` replace, `g` goto, `n` linenos, `d` dark, `o` toc, `c` config, `e` export, `s` stats, `i` info, `t` timer, `p` pause, `w` typewriter, `q` close.
+
+**`≡` menu**: single dropdown in the editor header. Opens with `openMenu()` in `app.js`. Sections: View, Search, Format (H1–H3 via `Editor.applyHeading(n)`, inline via `Editor.applyInlineMarker()`), Document, App.
 
 ### Adding a feature
 

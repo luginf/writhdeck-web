@@ -163,7 +163,28 @@ const Editor = (() => {
   }
 
   function rehighlight() {
-    pre().innerHTML = highlight(ta().value, State.settings);
+    const searchVisible = !document.getElementById('search-bar').hidden;
+    let paraStart, paraEnd;
+    if (_typewriter) {
+      const input = ta();
+      const text  = input.value;
+      const idx   = text.substring(0, input.selectionStart).split('\n').length - 1;
+      const ls    = text.split('\n');
+      const s     = State.settings;
+      const isBoundary = i => {
+        const l = ls[i] || '';
+        return !l.trim()
+          || (s.headingMarker && l.startsWith(s.headingMarker))
+          || (s.markdownHeadings && /^#{1,6}\s/.test(l))
+          || (s.commentMarker && l.startsWith(s.commentMarker));
+      };
+      paraStart = idx; paraEnd = idx;
+      if (!isBoundary(idx)) {
+        while (paraStart > 0 && !isBoundary(paraStart - 1)) paraStart--;
+        while (paraEnd < ls.length - 1 && !isBoundary(paraEnd + 1)) paraEnd++;
+      }
+    }
+    pre().innerHTML = highlight(ta().value, State.settings, searchVisible ? _searchTerm : '', paraStart, paraEnd);
     syncGutter();
   }
 
@@ -202,11 +223,10 @@ const Editor = (() => {
 
   function typewriterScroll() {
     if (!_typewriter) return;
-    const input = ta();
-    const text  = input.value.substring(0, input.selectionStart);
-    const line  = text.split('\n').length - 1;
-    const lh    = parseFloat(getComputedStyle(input).lineHeight) || 20;
-    input.scrollTop = Math.max(0, line * lh - input.clientHeight / 2 + lh / 2);
+    const input   = ta();
+    const lineIdx = input.value.substring(0, input.selectionStart).split('\n').length - 1;
+    const lh      = parseFloat(getComputedStyle(input).lineHeight) || 20;
+    input.scrollTop = Math.max(0, linePixelTop(input, lineIdx) - input.clientHeight / 2 + lh / 2);
   }
 
   // ── Line numbers ──────────────────────────────────────────────────────────
@@ -464,13 +484,18 @@ const Editor = (() => {
     ta().focus();
     _matches = []; _matchIdx = -1;
     document.getElementById('search-count').textContent = '';
+    rehighlight(); // retire les surlignages (barre cachée → searchTerm ignoré)
   }
 
   function searchUpdate() {
     _searchTerm = document.getElementById('search-input').value;
     _matches = [];
     _matchIdx = -1;
-    if (!_searchTerm) { document.getElementById('search-count').textContent = ''; return; }
+    if (!_searchTerm) {
+      document.getElementById('search-count').textContent = '';
+      rehighlight();
+      return;
+    }
     const text = ta().value;
     const lower = text.toLowerCase();
     const term  = _searchTerm.toLowerCase();
@@ -481,6 +506,7 @@ const Editor = (() => {
     }
     document.getElementById('search-count').textContent = `${_matches.length} match${_matches.length !== 1 ? 'es' : ''}`;
     if (_matches.length) searchNext();
+    rehighlight(); // applique les surlignages
   }
 
   function searchNext() {
@@ -498,9 +524,10 @@ const Editor = (() => {
   function selectMatch(pos) {
     const input   = ta();
     const lineIdx = input.value.slice(0, pos).split('\n').length - 1;
-    input.focus();
+    // Ne pas appeler input.focus() : cela volerait le focus depuis le champ de recherche
     input.setSelectionRange(pos, pos + _searchTerm.length);
     input.scrollTop = Math.max(0, linePixelTop(input, lineIdx) - input.clientHeight / 3);
+    syncScroll();
   }
 
   function replaceOne() {
@@ -541,7 +568,7 @@ const Editor = (() => {
   return {
     open, close, save, onInput, syncScroll, syncGutter, rehighlight, updateStatusBar, setMsg,
     saveCursorPos, applyLineNumbers,
-    toggleTypewriter, toggleLineNumbers, gotoLine, gotoLineGo, gotoLineClose,
+    toggleTypewriter, typewriterScroll, toggleLineNumbers, gotoLine, gotoLineGo, gotoLineClose,
     applyLineMarker, applyInlineMarker, applyHeading,
     enterCmdMode, exitCmdMode, isCmdMode,
     searchOpen, searchClose, searchUpdate, searchNext, searchPrev, replaceOne, replaceAll,

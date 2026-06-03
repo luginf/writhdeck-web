@@ -5,7 +5,7 @@ function escapeHtml(s) {
   return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
 
-function highlight(text, s) {
+function highlight(text, s, searchTerm, paraStart, paraEnd) {
   // Build regexes from current settings
   const hm = escRx(s.headingMarker);
   const cm = escRx(s.commentMarker);
@@ -14,22 +14,26 @@ function highlight(text, s) {
   const um = escRx(s.underlineMarker);
   const sm = escRx(s.strikeMarker);
 
+  const hasPara = paraStart !== undefined && paraEnd !== undefined;
   const lines = text.split('\n');
-  const out = lines.map(line => {
+  const out = lines.map((line, idx) => {
+    const dim = hasPara && (idx < paraStart || idx > paraEnd);
     const esc = escapeHtml(line);
 
     // Heading line
     if (hm && line.startsWith(s.headingMarker)) {
-      return `<span class="hl-heading">${esc}</span>`;
+      return `<span class="hl-heading${dim ? ' hl-dim' : ''}">${esc}</span>`;
     }
     // Markdown headings
     if (s.markdownHeadings && /^#{1,6}\s/.test(line)) {
-      return `<span class="hl-heading">${esc}</span>`;
+      return `<span class="hl-heading${dim ? ' hl-dim' : ''}">${esc}</span>`;
     }
     // Comment line
     if (cm && line.startsWith(s.commentMarker)) {
-      return `<span class="hl-comment">${esc}</span>`;
+      return `<span class="hl-comment${dim ? ' hl-dim' : ''}">${esc}</span>`;
     }
+    // Lines outside paragraph in typewriter mode: plain dim, no inline markup
+    if (dim) return `<span class="hl-dim">${esc}</span>`;
     // Inline markup (apply in order, non-greedy)
     let result = esc;
     if (bm) result = result.replace(new RegExp(escRx(escapeHtml(s.boldMarker)) + '(.+?)' + escRx(escapeHtml(s.boldMarker)), 'g'),
@@ -44,7 +48,14 @@ function highlight(text, s) {
   });
 
   // Trailing newline required for correct height in the overlay
-  return out.join('\n') + '\n';
+  if (!searchTerm) return out.join('\n') + '\n';
+
+  // Inject search highlights into text nodes only (skip HTML tags)
+  const termRx = escRx(escapeHtml(searchTerm));
+  return out.map(line => line.replace(/(<[^>]+>)|([^<]+)/g, (_, tag, text) =>
+    tag ? tag : text.replace(new RegExp(termRx, 'gi'),
+      m => `<span class="hl-search">${m}</span>`)
+  )).join('\n') + '\n';
 }
 
 function escRx(s) {

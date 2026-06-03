@@ -179,8 +179,10 @@ input[type="color"] { width: 40px; height: 24px; padding: 1px; border: 1px solid
 }
 #ed-linenos[hidden] { display: none; }
 
-/* Typewriter mode — subtle indicator on status bar */
+/* Typewriter mode */
 #editor.typewriter #ed-bar { border-top: 2px solid var(--heading); }
+.hl-dim         { color: var(--comment); }
+.hl-heading.hl-dim { color: var(--heading); opacity: 0.35; }
 
 /* TOC side panel */
 #toc-panel {
@@ -225,7 +227,7 @@ input[type="color"] { width: 40px; height: 24px; padding: 1px; border: 1px solid
 
 #ed-highlight {
   background: transparent;
-  color: transparent;
+  color: var(--fg);      /* pre rend tout le texte — toujours */
   pointer-events: none;
   user-select: none;
   overflow: hidden;
@@ -233,20 +235,20 @@ input[type="color"] { width: 40px; height: 24px; padding: 1px; border: 1px solid
 
 #ed-input {
   background: transparent;
-  color: var(--fg);
+  color: transparent;    /* textarea transparent — saisie uniquement */
   caret-color: var(--fg);
   resize: none;
   overflow-y: auto;
   overflow-x: hidden;
   z-index: 1;
-  selection-color: var(--bg-sel);
 }
-#ed-input::selection { background: var(--bg-sel); }
+#ed-input::selection { background: var(--bg-sel); color: var(--fg); }
 
 /* highlight spans */
 .hl-heading  { color: var(--heading); }
 .hl-comment  { color: var(--comment); }
 .hl-markup   { color: var(--markup); }
+.hl-search   { background: var(--bg-sel); }
 
 /* Search / goto bars */
 #search-bar, #goto-bar {
@@ -912,7 +914,10 @@ async function loadState() {
     // Normal path — INI is the source of truth
     const { settings, schemes } = INI.parseIni(iniText);
     Object.assign(State.settings, settings);
-    Object.assign(customSchemes, schemes);
+    // Only load non-built-in schemes: built-in colors come from code, not IDB
+    for (const [n, sc] of Object.entries(schemes)) {
+      if (!SCHEMES[n]) customSchemes[n] = sc;
+    }
     State.customSchemes = { ...customSchemes };
     State.iniText = iniText;
   } else if (oldSettings) {
@@ -1254,7 +1259,7 @@ function escapeHtml(s) {
   return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
 
-function highlight(text, s) {
+function highlight(text, s, searchTerm, paraStart, paraEnd) {
   // Build regexes from current settings
   const hm = escRx(s.headingMarker);
   const cm = escRx(s.commentMarker);
@@ -1263,22 +1268,26 @@ function highlight(text, s) {
   const um = escRx(s.underlineMarker);
   const sm = escRx(s.strikeMarker);
 
+  const hasPara = paraStart !== undefined && paraEnd !== undefined;
   const lines = text.split('\n');
-  const out = lines.map(line => {
+  const out = lines.map((line, idx) => {
+    const dim = hasPara && (idx < paraStart || idx > paraEnd);
     const esc = escapeHtml(line);
 
     // Heading line
     if (hm && line.startsWith(s.headingMarker)) {
-      return `<span class="hl-heading">${esc}</span>`;
+      return `<span class="hl-heading${dim ? ' hl-dim' : ''}">${esc}</span>`;
     }
     // Markdown headings
     if (s.markdownHeadings && /^#{1,6}\s/.test(line)) {
-      return `<span class="hl-heading">${esc}</span>`;
+      return `<span class="hl-heading${dim ? ' hl-dim' : ''}">${esc}</span>`;
     }
     // Comment line
     if (cm && line.startsWith(s.commentMarker)) {
-      return `<span class="hl-comment">${esc}</span>`;
+      return `<span class="hl-comment${dim ? ' hl-dim' : ''}">${esc}</span>`;
     }
+    // Lines outside paragraph in typewriter mode: plain dim, no inline markup
+    if (dim) return `<span class="hl-dim">${esc}</span>`;
     // Inline markup (apply in order, non-greedy)
     let result = esc;
     if (bm) result = result.replace(new RegExp(escRx(escapeHtml(s.boldMarker)) + '(.+?)' + escRx(escapeHtml(s.boldMarker)), 'g'),
@@ -1293,7 +1302,14 @@ function highlight(text, s) {
   });
 
   // Trailing newline required for correct height in the overlay
-  return out.join('\n') + '\n';
+  if (!searchTerm) return out.join('\n') + '\n';
+
+  // Inject search highlights into text nodes only (skip HTML tags)
+  const termRx = escRx(escapeHtml(searchTerm));
+  return out.map(line => line.replace(/(<[^>]+>)|([^<]+)/g, (_, tag, text) =>
+    tag ? tag : text.replace(new RegExp(termRx, 'gi'),
+      m => `<span class="hl-search">${m}</span>`)
+  )).join('\n') + '\n';
 }
 
 function escRx(s) {
@@ -1716,7 +1732,28 @@ const Editor = (() => {
   }
 
   function rehighlight() {
-    pre().innerHTML = highlight(ta().value, State.settings);
+    const searchVisible = !document.getElementById('search-bar').hidden;
+    let paraStart, paraEnd;
+    if (_typewriter) {
+      const input = ta();
+      const text  = input.value;
+      const idx   = text.substring(0, input.selectionStart).split('\n').length - 1;
+      const ls    = text.split('\n');
+      const s     = State.settings;
+      const isBoundary = i => {
+        const l = ls[i] || '';
+        return !l.trim()
+          || (s.headingMarker && l.startsWith(s.headingMarker))
+          || (s.markdownHeadings && /^#{1,6}\s/.test(l))
+          || (s.commentMarker && l.startsWith(s.commentMarker));
+      };
+      paraStart = idx; paraEnd = idx;
+      if (!isBoundary(idx)) {
+        while (paraStart > 0 && !isBoundary(paraStart - 1)) paraStart--;
+        while (paraEnd < ls.length - 1 && !isBoundary(paraEnd + 1)) paraEnd++;
+      }
+    }
+    pre().innerHTML = highlight(ta().value, State.settings, searchVisible ? _searchTerm : '', paraStart, paraEnd);
     syncGutter();
   }
 
@@ -1755,11 +1792,10 @@ const Editor = (() => {
 
   function typewriterScroll() {
     if (!_typewriter) return;
-    const input = ta();
-    const text  = input.value.substring(0, input.selectionStart);
-    const line  = text.split('\n').length - 1;
-    const lh    = parseFloat(getComputedStyle(input).lineHeight) || 20;
-    input.scrollTop = Math.max(0, line * lh - input.clientHeight / 2 + lh / 2);
+    const input   = ta();
+    const lineIdx = input.value.substring(0, input.selectionStart).split('\n').length - 1;
+    const lh      = parseFloat(getComputedStyle(input).lineHeight) || 20;
+    input.scrollTop = Math.max(0, linePixelTop(input, lineIdx) - input.clientHeight / 2 + lh / 2);
   }
 
   // ── Line numbers ──────────────────────────────────────────────────────────
@@ -2017,13 +2053,18 @@ const Editor = (() => {
     ta().focus();
     _matches = []; _matchIdx = -1;
     document.getElementById('search-count').textContent = '';
+    rehighlight(); // retire les surlignages (barre cachée → searchTerm ignoré)
   }
 
   function searchUpdate() {
     _searchTerm = document.getElementById('search-input').value;
     _matches = [];
     _matchIdx = -1;
-    if (!_searchTerm) { document.getElementById('search-count').textContent = ''; return; }
+    if (!_searchTerm) {
+      document.getElementById('search-count').textContent = '';
+      rehighlight();
+      return;
+    }
     const text = ta().value;
     const lower = text.toLowerCase();
     const term  = _searchTerm.toLowerCase();
@@ -2034,6 +2075,7 @@ const Editor = (() => {
     }
     document.getElementById('search-count').textContent = `${_matches.length} match${_matches.length !== 1 ? 'es' : ''}`;
     if (_matches.length) searchNext();
+    rehighlight(); // applique les surlignages
   }
 
   function searchNext() {
@@ -2051,9 +2093,10 @@ const Editor = (() => {
   function selectMatch(pos) {
     const input   = ta();
     const lineIdx = input.value.slice(0, pos).split('\n').length - 1;
-    input.focus();
+    // Ne pas appeler input.focus() : cela volerait le focus depuis le champ de recherche
     input.setSelectionRange(pos, pos + _searchTerm.length);
     input.scrollTop = Math.max(0, linePixelTop(input, lineIdx) - input.clientHeight / 3);
+    syncScroll();
   }
 
   function replaceOne() {
@@ -2094,7 +2137,7 @@ const Editor = (() => {
   return {
     open, close, save, onInput, syncScroll, syncGutter, rehighlight, updateStatusBar, setMsg,
     saveCursorPos, applyLineNumbers,
-    toggleTypewriter, toggleLineNumbers, gotoLine, gotoLineGo, gotoLineClose,
+    toggleTypewriter, typewriterScroll, toggleLineNumbers, gotoLine, gotoLineGo, gotoLineClose,
     applyLineMarker, applyInlineMarker, applyHeading,
     enterCmdMode, exitCmdMode, isCmdMode,
     searchOpen, searchClose, searchUpdate, searchNext, searchPrev, replaceOne, replaceAll,
@@ -3142,6 +3185,7 @@ async function init() {
               if (!SCHEMES[n]) customSchemes[n] = sc;
             }
             await saveSettings();
+            applyTheme(); // re-appliquer après maj des settings depuis le dossier
           } catch (_) {}
         }
       }
@@ -3303,7 +3347,7 @@ async function init() {
     if (document.hidden && State.doc) Editor.saveCursorPos();
   });
   window.addEventListener('resize', () => {
-    if (State.doc) { Editor.syncGutter(); Editor.syncScroll(); }
+    if (State.doc) { Editor.syncGutter(); Editor.syncScroll(); Editor.typewriterScroll(); }
   });
   document.addEventListener('fullscreenchange', () => {
     if (State.doc) { Editor.syncGutter(); Editor.syncScroll(); }

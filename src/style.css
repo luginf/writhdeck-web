@@ -172,8 +172,10 @@ input[type="color"] { width: 40px; height: 24px; padding: 1px; border: 1px solid
 }
 #ed-linenos[hidden] { display: none; }
 
-/* Typewriter mode — subtle indicator on status bar */
+/* Typewriter mode */
 #editor.typewriter #ed-bar { border-top: 2px solid var(--heading); }
+.hl-dim         { color: var(--comment); }
+.hl-heading.hl-dim { color: var(--heading); opacity: 0.35; }
 
 /* TOC side panel */
 #toc-panel {
@@ -218,7 +220,7 @@ input[type="color"] { width: 40px; height: 24px; padding: 1px; border: 1px solid
 
 #ed-highlight {
   background: transparent;
-  color: transparent;
+  color: var(--fg);      /* pre rend tout le texte — toujours */
   pointer-events: none;
   user-select: none;
   overflow: hidden;
@@ -226,20 +228,20 @@ input[type="color"] { width: 40px; height: 24px; padding: 1px; border: 1px solid
 
 #ed-input {
   background: transparent;
-  color: var(--fg);
+  color: transparent;    /* textarea transparent — saisie uniquement */
   caret-color: var(--fg);
   resize: none;
   overflow-y: auto;
   overflow-x: hidden;
   z-index: 1;
-  selection-color: var(--bg-sel);
 }
-#ed-input::selection { background: var(--bg-sel); }
+#ed-input::selection { background: var(--bg-sel); color: var(--fg); }
 
 /* highlight spans */
 .hl-heading  { color: var(--heading); }
 .hl-comment  { color: var(--comment); }
 .hl-markup   { color: var(--markup); }
+.hl-search   { background: var(--bg-sel); }
 
 /* Search / goto bars */
 #search-bar, #goto-bar {

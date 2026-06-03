@@ -247,6 +247,7 @@ async function init() {
               if (!SCHEMES[n]) customSchemes[n] = sc;
             }
             await saveSettings();
+            applyTheme(); // re-appliquer après maj des settings depuis le dossier
           } catch (_) {}
         }
       }
@@ -408,7 +409,7 @@ async function init() {
     if (document.hidden && State.doc) Editor.saveCursorPos();
   });
   window.addEventListener('resize', () => {
-    if (State.doc) { Editor.syncGutter(); Editor.syncScroll(); }
+    if (State.doc) { Editor.syncGutter(); Editor.syncScroll(); Editor.typewriterScroll(); }
   });
   document.addEventListener('fullscreenchange', () => {
     if (State.doc) { Editor.syncGutter(); Editor.syncScroll(); }

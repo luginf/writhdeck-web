@@ -14,11 +14,13 @@ A distraction-free writing app that runs as a single self-contained HTML file �
 - **Table of contents**: auto-generated from heading lines, shown in a side panel.
 - **Daily word-count stats** with optional daily goal.
 - **Hemingway mode**: disables backspace/delete to keep you writing forward.
-- **Typewriter mode**: keeps the cursor vertically centred.
-- **Find & replace**, goto line, line numbers.
+- **Typewriter mode**: keeps the cursor vertically centred; dims text outside the current paragraph so only the active paragraph appears at full colour.
+- **Find & replace** with live match highlighting, goto line, line numbers.
 - **Export** as `.txt` or `.md`.
 - **INI config**: load a `writhdeck.ini` file to share settings across installs.
-- **Status bar**: fully customisable left/centre/right slots with tokens (`{words}`, `{chars}`, `{lines}`, `{date}`, `{time}`, `{timer}`, …).
+- **Status bar**: fully customisable left/centre/right slots with tokens (`words`, `chars`, `filename`, `goal`, `clock`, `timer`, …).
+- **`≡` menu**: all commands accessible from a single dropdown — format selection (H1–H3, bold, italic…), search, export, settings, and more.
+- **Command mode** (`Esc` or `Alt+C`): modal keyboard interface for all editor commands without Ctrl shortcuts.
 
 ## Build
 
@@ -37,8 +39,9 @@ make clean  # removes writhdeck.html
 |---|---|
 | `Ctrl+D` | Toggle dark / light mode |
 | `Ctrl+O` | Import file copy |
-| `F11` | Toggle table of contents (editor) |
+| `F11` | Toggle table of contents |
 | `Alt+Enter` | Toggle fullscreen |
+| `Ctrl+N` *(opt)* | New document (overrides browser "new window") |
 
 ### Editor
 
@@ -46,13 +49,26 @@ make clean  # removes writhdeck.html
 |---|---|
 | `Ctrl+S` | Save |
 | `Ctrl+Q` | Close document |
-| `Ctrl+F` | Find |
+| `Ctrl+F` | Find (live match highlighting) |
 | `Ctrl+H` | Find & replace |
-| `Ctrl+G` | Goto line |
+| `Ctrl+G` | Go to line |
 | `Ctrl+L` | Toggle line numbers |
 | `Alt+T` | Toggle timer |
-| `Esc` | Enter command mode (then `s` stats, `i` info, `t` timer, `q` close) |
-| `Ctrl+T` *(opt)* | Toggle typewriter mode |
+| `Alt+C` / `Esc` | Enter command mode |
+
+### Command mode (`Alt+C` or `Esc`)
+
+Press the trigger key, then one letter. Works in fullscreen (`Alt+C`).
+
+| Key | Action | Key | Action |
+|---|---|---|---|
+| `f` | Find | `d` | Dark / light |
+| `r` | Find & replace | `o` | Table of contents |
+| `g` | Go to line | `c` | Settings |
+| `n` | Line numbers | `e` | Export as .txt |
+| `w` | Typewriter mode | `s` | Statistics |
+| `t` | Timer | `i` | File info |
+| `p` | Timer pause | `q` | Close document |
 
 ### Browser (document list)
 
