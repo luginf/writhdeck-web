@@ -229,7 +229,11 @@ input[type="color"] { width: 40px; height: 24px; padding: 1px; border: 1px solid
   pointer-events: none;
   user-select: none;
   overflow: hidden;
+  /* Match textarea's scrollbar gutter so text wraps at the same width */
+  overflow-y: scroll;
+  scrollbar-width: none;
 }
+#ed-highlight::-webkit-scrollbar { display: none; }
 
 #ed-input {
   background: transparent;
@@ -238,13 +242,14 @@ input[type="color"] { width: 40px; height: 24px; padding: 1px; border: 1px solid
   resize: none;
   overflow-y: auto;
   overflow-x: hidden;
+  scrollbar-gutter: stable;
   z-index: 1;
   selection-color: var(--bg-sel);
 }
 #ed-input::selection { background: var(--bg-sel); }
 
 /* highlight spans */
-.hl-heading  { color: var(--heading); font-weight: bold; }
+.hl-heading  { color: var(--heading); }
 .hl-comment  { color: var(--comment); }
 .hl-markup   { color: var(--markup); }
 
@@ -1363,6 +1368,15 @@ const Timer = (() => {
 const TOC = (() => {
   let _visible = false;
 
+  function _show(visible) {
+    const panel = document.getElementById('toc-panel');
+    if (!panel) return;
+    // Use style.display instead of hidden attribute — avoids Firefox UA cascade issues
+    panel.style.display = visible ? 'flex' : 'none';
+    const btn = document.getElementById('ed-toc-btn');
+    if (btn) btn.classList.toggle('active', visible);
+  }
+
   function parse(text, s) {
     const entries = [];
     text.split('\n').forEach((line, idx) => {
@@ -1391,9 +1405,25 @@ const TOC = (() => {
     return text.split('\n').slice(0, lineIdx).reduce((s, l) => s + l.length + 1, 0);
   }
 
+  function linePixelTop(ta, lineIdx) {
+    const cs = getComputedStyle(ta);
+    const m  = document.createElement('div');
+    m.style.cssText = `position:fixed;top:-9999px;left:-9999px;visibility:hidden;`
+      + `white-space:pre-wrap;overflow-wrap:break-word;word-break:break-word;`
+      + `font-family:${cs.fontFamily};font-size:${cs.fontSize};line-height:${cs.lineHeight};`
+      + `padding:${cs.paddingTop} ${cs.paddingRight} 0 ${cs.paddingLeft};`
+      + `width:${ta.clientWidth}px;box-sizing:border-box`;
+    m.textContent = ta.value.split('\n').slice(0, lineIdx).join('\n') + (lineIdx > 0 ? '\n' : '');
+    document.body.appendChild(m);
+    const top = m.offsetHeight;
+    document.body.removeChild(m);
+    return top;
+  }
+
   function render() {
     const ta      = document.getElementById('ed-input');
     const list    = document.getElementById('toc-list');
+    if (!ta || !list) return;
     const entries = parse(ta.value, State.settings);
     list.innerHTML = '';
     if (!entries.length) {
@@ -1412,26 +1442,21 @@ const TOC = (() => {
         const offset = lineToOffset(ta.value, e.line);
         ta.focus();
         ta.setSelectionRange(offset, offset);
-        const lh = parseFloat(getComputedStyle(ta).lineHeight) || 20;
-        ta.scrollTop = e.line * lh - ta.clientHeight / 3;
+        ta.scrollTop = Math.max(0, linePixelTop(ta, e.line) - ta.clientHeight / 3);
       });
       list.appendChild(div);
     });
   }
 
   function toggle() {
-    const panel = document.getElementById('toc-panel');
     _visible = !_visible;
-    panel.hidden = !_visible;
+    _show(_visible);
     if (_visible) render();
-    // Sync TOC button state
-    document.getElementById('ed-toc-btn').classList.toggle('active', _visible);
   }
 
   function hide() {
     _visible = false;
-    document.getElementById('toc-panel').hidden = true;
-    document.getElementById('ed-toc-btn').classList.remove('active');
+    _show(false);
   }
 
   function refresh() { if (_visible) render(); }
@@ -1717,16 +1742,29 @@ const Editor = (() => {
     if (!raw) return;
     const n = parseInt(raw, 10);
     if (isNaN(n) || n < 1) return;
-    const input  = ta();
-    const lines  = input.value.split('\n');
+    const input   = ta();
+    const lines   = input.value.split('\n');
+    const lineIdx = Math.min(n - 1, lines.length - 1);
     let offset = 0;
-    for (let i = 0; i < Math.min(n - 1, lines.length); i++) {
-      offset += lines[i].length + 1;
-    }
+    for (let i = 0; i < lineIdx; i++) offset += lines[i].length + 1;
     input.focus();
     input.setSelectionRange(offset, offset);
-    const lh = parseFloat(getComputedStyle(input).lineHeight) || 20;
-    input.scrollTop = (n - 1) * lh - input.clientHeight / 3;
+    input.scrollTop = Math.max(0, linePixelTop(input, lineIdx) - input.clientHeight / 3);
+  }
+
+  function linePixelTop(input, lineIdx) {
+    const cs = getComputedStyle(input);
+    const m  = document.createElement('div');
+    m.style.cssText = `position:fixed;top:-9999px;left:-9999px;visibility:hidden;`
+      + `white-space:pre-wrap;overflow-wrap:break-word;word-break:break-word;`
+      + `font-family:${cs.fontFamily};font-size:${cs.fontSize};line-height:${cs.lineHeight};`
+      + `padding:${cs.paddingTop} ${cs.paddingRight} 0 ${cs.paddingLeft};`
+      + `width:${input.clientWidth}px;box-sizing:border-box`;
+    m.textContent = input.value.split('\n').slice(0, lineIdx).join('\n') + (lineIdx > 0 ? '\n' : '');
+    document.body.appendChild(m);
+    const top = m.offsetHeight;
+    document.body.removeChild(m);
+    return top;
   }
 
   // ── Command mode (ESC) ───────────────────────────────────────────────────
@@ -1864,12 +1902,11 @@ const Editor = (() => {
   }
 
   function selectMatch(pos) {
-    ta().focus();
-    ta().setSelectionRange(pos, pos + _searchTerm.length);
-    // Scroll into view
-    const lh = parseFloat(getComputedStyle(ta()).lineHeight) || 20;
-    const lineIdx = ta().value.slice(0, pos).split('\n').length - 1;
-    ta().scrollTop = lineIdx * lh - ta().clientHeight / 3;
+    const input   = ta();
+    const lineIdx = input.value.slice(0, pos).split('\n').length - 1;
+    input.focus();
+    input.setSelectionRange(pos, pos + _searchTerm.length);
+    input.scrollTop = Math.max(0, linePixelTop(input, lineIdx) - input.clientHeight / 3);
   }
 
   function replaceOne() {

@@ -230,16 +230,29 @@ const Editor = (() => {
     if (!raw) return;
     const n = parseInt(raw, 10);
     if (isNaN(n) || n < 1) return;
-    const input  = ta();
-    const lines  = input.value.split('\n');
+    const input   = ta();
+    const lines   = input.value.split('\n');
+    const lineIdx = Math.min(n - 1, lines.length - 1);
     let offset = 0;
-    for (let i = 0; i < Math.min(n - 1, lines.length); i++) {
-      offset += lines[i].length + 1;
-    }
+    for (let i = 0; i < lineIdx; i++) offset += lines[i].length + 1;
     input.focus();
     input.setSelectionRange(offset, offset);
-    const lh = parseFloat(getComputedStyle(input).lineHeight) || 20;
-    input.scrollTop = (n - 1) * lh - input.clientHeight / 3;
+    input.scrollTop = Math.max(0, linePixelTop(input, lineIdx) - input.clientHeight / 3);
+  }
+
+  function linePixelTop(input, lineIdx) {
+    const cs = getComputedStyle(input);
+    const m  = document.createElement('div');
+    m.style.cssText = `position:fixed;top:-9999px;left:-9999px;visibility:hidden;`
+      + `white-space:pre-wrap;overflow-wrap:break-word;word-break:break-word;`
+      + `font-family:${cs.fontFamily};font-size:${cs.fontSize};line-height:${cs.lineHeight};`
+      + `padding:${cs.paddingTop} ${cs.paddingRight} 0 ${cs.paddingLeft};`
+      + `width:${input.clientWidth}px;box-sizing:border-box`;
+    m.textContent = input.value.split('\n').slice(0, lineIdx).join('\n') + (lineIdx > 0 ? '\n' : '');
+    document.body.appendChild(m);
+    const top = m.offsetHeight;
+    document.body.removeChild(m);
+    return top;
   }
 
   // ── Command mode (ESC) ───────────────────────────────────────────────────
@@ -377,12 +390,11 @@ const Editor = (() => {
   }
 
   function selectMatch(pos) {
-    ta().focus();
-    ta().setSelectionRange(pos, pos + _searchTerm.length);
-    // Scroll into view
-    const lh = parseFloat(getComputedStyle(ta()).lineHeight) || 20;
-    const lineIdx = ta().value.slice(0, pos).split('\n').length - 1;
-    ta().scrollTop = lineIdx * lh - ta().clientHeight / 3;
+    const input   = ta();
+    const lineIdx = input.value.slice(0, pos).split('\n').length - 1;
+    input.focus();
+    input.setSelectionRange(pos, pos + _searchTerm.length);
+    input.scrollTop = Math.max(0, linePixelTop(input, lineIdx) - input.clientHeight / 3);
   }
 
   function replaceOne() {

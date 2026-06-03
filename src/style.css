@@ -222,7 +222,11 @@ input[type="color"] { width: 40px; height: 24px; padding: 1px; border: 1px solid
   pointer-events: none;
   user-select: none;
   overflow: hidden;
+  /* Match textarea's scrollbar gutter so text wraps at the same width */
+  overflow-y: scroll;
+  scrollbar-width: none;
 }
+#ed-highlight::-webkit-scrollbar { display: none; }
 
 #ed-input {
   background: transparent;
@@ -231,13 +235,14 @@ input[type="color"] { width: 40px; height: 24px; padding: 1px; border: 1px solid
   resize: none;
   overflow-y: auto;
   overflow-x: hidden;
+  scrollbar-gutter: stable;
   z-index: 1;
   selection-color: var(--bg-sel);
 }
 #ed-input::selection { background: var(--bg-sel); }
 
 /* highlight spans */
-.hl-heading  { color: var(--heading); font-weight: bold; }
+.hl-heading  { color: var(--heading); }
 .hl-comment  { color: var(--comment); }
 .hl-markup   { color: var(--markup); }
 

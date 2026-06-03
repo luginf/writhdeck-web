@@ -40,6 +40,21 @@ const TOC = (() => {
     return text.split('\n').slice(0, lineIdx).reduce((s, l) => s + l.length + 1, 0);
   }
 
+  function linePixelTop(ta, lineIdx) {
+    const cs = getComputedStyle(ta);
+    const m  = document.createElement('div');
+    m.style.cssText = `position:fixed;top:-9999px;left:-9999px;visibility:hidden;`
+      + `white-space:pre-wrap;overflow-wrap:break-word;word-break:break-word;`
+      + `font-family:${cs.fontFamily};font-size:${cs.fontSize};line-height:${cs.lineHeight};`
+      + `padding:${cs.paddingTop} ${cs.paddingRight} 0 ${cs.paddingLeft};`
+      + `width:${ta.clientWidth}px;box-sizing:border-box`;
+    m.textContent = ta.value.split('\n').slice(0, lineIdx).join('\n') + (lineIdx > 0 ? '\n' : '');
+    document.body.appendChild(m);
+    const top = m.offsetHeight;
+    document.body.removeChild(m);
+    return top;
+  }
+
   function render() {
     const ta      = document.getElementById('ed-input');
     const list    = document.getElementById('toc-list');
@@ -62,8 +77,7 @@ const TOC = (() => {
         const offset = lineToOffset(ta.value, e.line);
         ta.focus();
         ta.setSelectionRange(offset, offset);
-        const lh = parseFloat(getComputedStyle(ta).lineHeight) || 20;
-        ta.scrollTop = e.line * lh - ta.clientHeight / 3;
+        ta.scrollTop = Math.max(0, linePixelTop(ta, e.line) - ta.clientHeight / 3);
       });
       list.appendChild(div);
     });
