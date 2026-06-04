@@ -295,9 +295,11 @@ input[type="color"] { width: 40px; height: 24px; padding: 1px; border: 1px solid
   font-family: var(--font-family); font-size: var(--font-size);
 }
 #ed-menu button:disabled { opacity: 0.35; pointer-events: none; }
-#ed-menu button:hover:not(:disabled) { background: var(--bg-sel); color: var(--fg); }
+#ed-menu button:hover:not(:disabled),
+#ed-menu button:focus:not(:disabled) { background: var(--bg-sel); color: var(--fg); outline: none; }
 #ed-menu button .hint { margin-left: 12px; font-size: 0.8em; color: var(--fg-bar); flex-shrink: 0; }
-#ed-menu button:hover .hint { color: inherit; }
+#ed-menu button:hover .hint,
+#ed-menu button:focus .hint { color: inherit; }
 .more-sep   { height: 1px; background: var(--fg-bar); opacity: 0.3; margin: 3px 0; flex-shrink: 0; }
 .more-label { padding: 3px 16px 1px; font-size: 0.75em; color: var(--fg-bar); text-transform: uppercase; letter-spacing: 0.05em; }
 

@@ -158,10 +158,26 @@ const Browser = (() => {
 
   // ── Document actions ─────────────────────────────────────────────────────
 
+  function nameExists(name, excludeId) {
+    return State.docs.some(d => d.name === name && d.id !== excludeId);
+  }
+
+  function uniqueName(base) {
+    if (!nameExists(base)) return base;
+    let n = 2;
+    while (nameExists(`${base} (${n})`)) n++;
+    return `${base} (${n})`;
+  }
+
   async function newDoc() {
-    const name = prompt('Document name:', 'Untitled');
+    const name = prompt('Document name:', uniqueName('Untitled'));
     if (!name || !name.trim()) return;
-    const doc = { name: name.trim(), content: '', created: Date.now(), modified: Date.now() };
+    const trimmed = name.trim();
+    if (nameExists(trimmed)) {
+      alert(`A document named "${trimmed}" already exists.`);
+      return;
+    }
+    const doc = { name: trimmed, content: '', created: Date.now(), modified: Date.now() };
     await DB.saveDoc(doc);
     State.docs.push(doc);
     render();
@@ -171,7 +187,12 @@ const Browser = (() => {
   async function renameDoc(doc) {
     const name = prompt('Rename to:', doc.name);
     if (!name || !name.trim() || name.trim() === doc.name) return;
-    doc.name = name.trim();
+    const trimmed = name.trim();
+    if (nameExists(trimmed, doc.id)) {
+      alert(`A document named "${trimmed}" already exists.`);
+      return;
+    }
+    doc.name = trimmed;
     await DB.saveDoc(doc);
     if (State.doc && State.doc.id === doc.id) {
       document.getElementById('ed-filename').textContent = doc.name;

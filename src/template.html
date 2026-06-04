@@ -72,7 +72,7 @@
 </div>
 
 <!-- Main editor menu -->
-<div id="ed-menu" hidden>
+<div id="ed-menu" hidden tabindex="-1">
   <button id="ed-more-cmd">⌨ Command mode <span class="hint">Esc / Alt+C</span></button>
   <div class="more-sep"></div>
   <div class="more-label">View</div>
@@ -104,6 +104,7 @@
   <div class="more-sep"></div>
   <div class="more-label">App</div>
   <button data-cmd="timer">Timer <span class="hint">t</span></button>
+  <button data-cmd="ctx-menu">Right-click menu</button>
   <button data-cmd="config">Settings <span class="hint">c</span></button>
 </div>
 
@@ -181,15 +182,14 @@
       <label>Left<input type="text" data-key="statusLeft"></label>
       <label>Center<input type="text" data-key="statusCenter"></label>
       <label>Right<input type="text" data-key="statusRight"></label>
-      <p class="hint">Tokens: filename dirty words chars goal clock timer</p>
+      <p class="hint">Tokens: filename dirty words chars lines line col para pages percent today goal reading clock timer</p>
       <p class="hint" style="margin-top:10px">Editor options</p>
       <label><input type="checkbox" data-key="lineNumbers"> Line numbers (Ctrl+L)</label>
       <p class="hint" style="margin-top:10px">Keyboard shortcuts</p>
       <label><input type="checkbox" data-key="interceptBrowserShortcuts">
         Override browser shortcuts
         <span class="hint" style="display:block;margin-top:2px">
-          Ctrl+N = new doc (browser: new window)<br>
-          Note: Ctrl+T (new tab) cannot be intercepted — use ESC → w for typewriter
+          Ctrl+N = new document (instead of browser new window)
         </span>
       </label>
       <p class="hint" style="margin-top:10px">Syntax markers</p>

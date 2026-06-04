@@ -302,9 +302,11 @@ input[type="color"] { width: 40px; height: 24px; padding: 1px; border: 1px solid
   font-family: var(--font-family); font-size: var(--font-size);
 }
 #ed-menu button:disabled { opacity: 0.35; pointer-events: none; }
-#ed-menu button:hover:not(:disabled) { background: var(--bg-sel); color: var(--fg); }
+#ed-menu button:hover:not(:disabled),
+#ed-menu button:focus:not(:disabled) { background: var(--bg-sel); color: var(--fg); outline: none; }
 #ed-menu button .hint { margin-left: 12px; font-size: 0.8em; color: var(--fg-bar); flex-shrink: 0; }
-#ed-menu button:hover .hint { color: inherit; }
+#ed-menu button:hover .hint,
+#ed-menu button:focus .hint { color: inherit; }
 .more-sep   { height: 1px; background: var(--fg-bar); opacity: 0.3; margin: 3px 0; flex-shrink: 0; }
 .more-label { padding: 3px 16px 1px; font-size: 0.75em; color: var(--fg-bar); text-transform: uppercase; letter-spacing: 0.05em; }
 
@@ -514,7 +516,7 @@ dialog::backdrop { background: rgba(0,0,0,0.5); }
 </div>
 
 <!-- Main editor menu -->
-<div id="ed-menu" hidden>
+<div id="ed-menu" hidden tabindex="-1">
   <button id="ed-more-cmd">⌨ Command mode <span class="hint">Esc / Alt+C</span></button>
   <div class="more-sep"></div>
   <div class="more-label">View</div>
@@ -546,6 +548,7 @@ dialog::backdrop { background: rgba(0,0,0,0.5); }
   <div class="more-sep"></div>
   <div class="more-label">App</div>
   <button data-cmd="timer">Timer <span class="hint">t</span></button>
+  <button data-cmd="ctx-menu">Right-click menu</button>
   <button data-cmd="config">Settings <span class="hint">c</span></button>
 </div>
 
@@ -623,15 +626,14 @@ dialog::backdrop { background: rgba(0,0,0,0.5); }
       <label>Left<input type="text" data-key="statusLeft"></label>
       <label>Center<input type="text" data-key="statusCenter"></label>
       <label>Right<input type="text" data-key="statusRight"></label>
-      <p class="hint">Tokens: filename dirty words chars goal clock timer</p>
+      <p class="hint">Tokens: filename dirty words chars lines line col para pages percent today goal reading clock timer</p>
       <p class="hint" style="margin-top:10px">Editor options</p>
       <label><input type="checkbox" data-key="lineNumbers"> Line numbers (Ctrl+L)</label>
       <p class="hint" style="margin-top:10px">Keyboard shortcuts</p>
       <label><input type="checkbox" data-key="interceptBrowserShortcuts">
         Override browser shortcuts
         <span class="hint" style="display:block;margin-top:2px">
-          Ctrl+N = new doc (browser: new window)<br>
-          Note: Ctrl+T (new tab) cannot be intercepted — use ESC → w for typewriter
+          Ctrl+N = new document (instead of browser new window)
         </span>
       </label>
       <p class="hint" style="margin-top:10px">Syntax markers</p>
@@ -886,7 +888,8 @@ const State = {
     statusCenter: '',
     statusRight: 'goal clock timer',
     lineNumbers: false,
-    interceptBrowserShortcuts: true
+    interceptBrowserShortcuts: true,
+    interceptContextMenu: true
   },
 
   favorites: [],  // [id, ...]
@@ -1981,7 +1984,7 @@ const Editor = (() => {
     if (_cmdMode) {
       document.getElementById('ed-bar-left').textContent   = 'f:find  r:replace  g:goto  n:linenos  o:toc';
       document.getElementById('ed-bar-center').textContent = 'd:dark  c:config  e:export  s:stats  i:info';
-      document.getElementById('ed-bar-right').textContent  = 't:timer  p:pause  w:typewriter  q:close  ·ESC/Alt+C:exit·';
+      document.getElementById('ed-bar-right').textContent  = 't:timer  p:pause  w:typewriter  m:menu  q:close  ·ESC/Alt+C:exit·';
       return;
     }
     const s = State.settings;
@@ -1995,12 +1998,38 @@ const Editor = (() => {
         switch (tok) {
           case 'filename': return doc ? doc.name : '';
           case 'dirty':    return State.dirty ? '[+]' : '';
-          case 'words':    return `${wc}w`;
-          case 'chars':    return `${(ta().value || '').length}c`;
+          case 'words':    return doc ? `${wc}w` : '';
+          case 'chars':    return doc ? `${(ta().value || '').length}c` : '';
           case 'goal':     return s.wordGoal > 0 ? `${today}/${s.wordGoal}` : '';
           case 'clock':    return clk;
           case 'timer':    return s.timerShow ? Timer.format() : '';
-          default:         return tok;
+          case 'today':    return doc && today > 0 ? `${today}↑` : '';
+          case 'percent':  return (doc && s.wordGoal > 0) ? `${Math.min(100, Math.round(wc / s.wordGoal * 100))}%` : '';
+          case 'lines':    return doc ? `${(ta().value.match(/\n/g) || []).length + 1}L` : '';
+          case 'line': {
+            if (!doc) return '';
+            const pos    = ta().selectionStart || 0;
+            const before = ta().value.slice(0, pos);
+            return `L${(before.match(/\n/g) || []).length + 1}`;
+          }
+          case 'col': {
+            if (!doc) return '';
+            const pos    = ta().selectionStart || 0;
+            const before = ta().value.slice(0, pos);
+            return `C${pos - before.lastIndexOf('\n')}`;
+          }
+          case 'para': {
+            if (!doc) return '';
+            const count = ta().value.split(/\n{2,}/).filter(p => p.trim()).length;
+            return count ? `${count}§` : '';
+          }
+          case 'pages':   return (doc && wc > 0) ? `${Math.ceil(wc / 250)}p` : '';
+          case 'reading': {
+            if (!doc || !wc) return '';
+            const mins = Math.ceil(wc / 200);
+            return mins < 60 ? `${mins}min` : `${Math.floor(mins / 60)}h${mins % 60 ? (mins % 60) + 'm' : ''}`;
+          }
+          default: return tok;
         }
       }).filter(Boolean).join('  ');
     }
@@ -2306,10 +2335,26 @@ const Browser = (() => {
 
   // ── Document actions ─────────────────────────────────────────────────────
 
+  function nameExists(name, excludeId) {
+    return State.docs.some(d => d.name === name && d.id !== excludeId);
+  }
+
+  function uniqueName(base) {
+    if (!nameExists(base)) return base;
+    let n = 2;
+    while (nameExists(`${base} (${n})`)) n++;
+    return `${base} (${n})`;
+  }
+
   async function newDoc() {
-    const name = prompt('Document name:', 'Untitled');
+    const name = prompt('Document name:', uniqueName('Untitled'));
     if (!name || !name.trim()) return;
-    const doc = { name: name.trim(), content: '', created: Date.now(), modified: Date.now() };
+    const trimmed = name.trim();
+    if (nameExists(trimmed)) {
+      alert(`A document named "${trimmed}" already exists.`);
+      return;
+    }
+    const doc = { name: trimmed, content: '', created: Date.now(), modified: Date.now() };
     await DB.saveDoc(doc);
     State.docs.push(doc);
     render();
@@ -2319,7 +2364,12 @@ const Browser = (() => {
   async function renameDoc(doc) {
     const name = prompt('Rename to:', doc.name);
     if (!name || !name.trim() || name.trim() === doc.name) return;
-    doc.name = name.trim();
+    const trimmed = name.trim();
+    if (nameExists(trimmed, doc.id)) {
+      alert(`A document named "${trimmed}" already exists.`);
+      return;
+    }
+    doc.name = trimmed;
     await DB.saveDoc(doc);
     if (State.doc && State.doc.id === doc.id) {
       document.getElementById('ed-filename').textContent = doc.name;
@@ -2939,6 +2989,22 @@ const Settings = (() => {
 'use strict';
 // Main entry point
 
+let _edMenu      = null;
+let _openMenuFn  = null;
+let _menuNavLock = false;
+let _edCtxMenu   = null;
+
+function hideEditorCtxMenu() {
+  if (_edCtxMenu) { _edCtxMenu.remove(); _edCtxMenu = null; }
+}
+
+function showMainMenu() {
+  if (!_edMenu || !_openMenuFn) return;
+  _openMenuFn();
+  _edMenu.hidden = true;
+  setTimeout(() => { _edMenu.hidden = false; }, 0);
+}
+
 // ── File info dialog ──────────────────────────────────────────────────────
 
 async function showFileInfo() {
@@ -3056,6 +3122,22 @@ function onKeydown(e) {
 
   Browser.hideContextMenu();
 
+  // Menu arrow navigation — intercept at capture level regardless of focus.
+  if (_edMenu && !_edMenu.hidden && (key === 'ArrowDown' || key === 'ArrowUp')) {
+    e.preventDefault(); e.stopPropagation();
+    if (!_menuNavLock) {
+      _menuNavLock = true;
+      requestAnimationFrame(() => { _menuNavLock = false; });
+      const items = Array.from(_edMenu.querySelectorAll('button:not(:disabled)'));
+      const idx   = items.indexOf(document.activeElement);
+      const next  = key === 'ArrowDown'
+        ? items[(idx + 1) % items.length]
+        : items[(idx - 1 + items.length) % items.length];
+      if (next) next.focus();
+    }
+    return;
+  }
+
   // Global shortcuts (work anywhere, no active input focused)
   const focused = document.activeElement;
   const inInput = focused && (focused.tagName === 'INPUT' || focused.tagName === 'TEXTAREA' || focused.tagName === 'SELECT');
@@ -3116,6 +3198,7 @@ function onKeydown(e) {
         case 'p': Timer.isActive() ? Timer.pause() : Timer.toggle();
                   Editor.updateStatusBar(); break;
         case 'w': Editor.toggleTypewriter(); break;
+        case 'm': showMainMenu(); break;
         case 'q': Editor.close();            break;
         // any other key: just exit cmd mode (already done above)
       }
@@ -3133,6 +3216,8 @@ function onKeydown(e) {
 
     if (lkey === 'escape') {
       e.preventDefault(); e.stopPropagation();
+      if (_edCtxMenu) { hideEditorCtxMenu(); return; }
+      if (_edMenu && !_edMenu.hidden) { _edMenu.hidden = true; return; }
       const openDlg = document.querySelector('dialog[open]');
       if (openDlg) { openDlg.close(); return; }
       if (!document.getElementById('search-bar').hidden) { Editor.searchClose(); return; }
@@ -3201,6 +3286,9 @@ async function init() {
   const ta = document.getElementById('ed-input');
   ta.addEventListener('input',  () => Editor.onInput());
   ta.addEventListener('scroll', () => Editor.syncScroll());
+  // Update line/col on cursor move (click or keyboard navigation)
+  ta.addEventListener('click',   () => Editor.updateStatusBar());
+  ta.addEventListener('keyup',   () => Editor.updateStatusBar());
 
   // Header buttons
   document.getElementById('br-new-btn').addEventListener('click',    () => Browser.newDoc());
@@ -3231,6 +3319,7 @@ async function init() {
   // Main editor menu (≡ button)
   const menuBtn  = document.getElementById('ed-menu-btn');
   const edMenu   = document.getElementById('ed-menu');
+  _edMenu = edMenu;
 
   function execCmd(cmd) {
     edMenu.hidden = true;
@@ -3251,6 +3340,11 @@ async function init() {
       case 'stats':      Stats.show();               break;
       case 'info':       showFileInfo();             break;
       case 'timer':      Timer.toggle(); Editor.updateStatusBar(); break;
+      case 'ctx-menu':
+        State.settings.interceptContextMenu = !State.settings.interceptContextMenu;
+        saveSettings();
+        Editor.setMsg(State.settings.interceptContextMenu ? 'Right-click menu on' : 'Right-click menu off');
+        break;
       case 'config':     Settings.show();            break;
     }
   }
@@ -3274,10 +3368,26 @@ async function init() {
       btn.innerHTML = marker ? `<span>${marker} ${label}</span>` : `<span>${label}</span>`;
       btn.disabled  = !marker;
     });
+    // Update ctx-menu toggle label
+    const ctxBtn = edMenu.querySelector('[data-cmd="ctx-menu"]');
+    if (ctxBtn) ctxBtn.innerHTML = `Right-click menu <span class="hint">${s.interceptContextMenu ? 'on' : 'off'}</span>`;
     edMenu.hidden = false;
   }
+  _openMenuFn = openMenu;
 
-  menuBtn.addEventListener('click', e => { e.stopPropagation(); edMenu.hidden ? openMenu() : (edMenu.hidden = true); });
+  function menuItems() {
+    return Array.from(edMenu.querySelectorAll('button:not(:disabled)'));
+  }
+
+  // Prevent menu button from stealing textarea focus (preserves selection).
+  menuBtn.addEventListener('mousedown', e => e.preventDefault());
+  menuBtn.addEventListener('click', e => {
+    e.stopPropagation();
+    if (!edMenu.hidden) { edMenu.hidden = true; return; }
+    openMenu();
+    edMenu.hidden = true;
+    setTimeout(() => { edMenu.hidden = false; }, 0);
+  });
 
   document.getElementById('ed-more-cmd').addEventListener('click', () => {
     edMenu.hidden = true;
@@ -3305,7 +3415,85 @@ async function init() {
     btn.addEventListener('click', () => execCmd(btn.dataset.cmd));
   });
 
-  document.addEventListener('click', () => { edMenu.hidden = true; });
+  document.addEventListener('click', () => { edMenu.hidden = true; hideEditorCtxMenu(); });
+
+  // ── Editor right-click context menu ──────────────────────────────────────
+
+  function buildCtxMenu(e) {
+    if (!State.settings.interceptContextMenu) return;
+    e.preventDefault();
+    hideEditorCtxMenu();
+
+    const s   = State.settings;
+    const ta  = document.getElementById('ed-input');
+    const sel = ta.selectionStart !== ta.selectionEnd;
+
+    const menu = document.createElement('div');
+    menu.style.cssText = `position:fixed;left:${e.clientX}px;top:${e.clientY}px;
+      background:var(--bg-bar);border:1px solid var(--fg-bar);z-index:200;min-width:180px;`;
+
+    function sep() {
+      const d = document.createElement('div');
+      d.style.cssText = 'height:1px;background:var(--fg-bar);opacity:0.3;margin:3px 0;';
+      menu.appendChild(d);
+    }
+
+    function item(label, fn, disabled) {
+      const btn = document.createElement('button');
+      btn.textContent = label;
+      btn.disabled = !!disabled;
+      btn.style.cssText = 'display:block;width:100%;text-align:left;padding:5px 14px;' +
+        'border:none;background:none;font-family:var(--font-family);font-size:var(--font-size);color:var(--fg);';
+      btn.addEventListener('mousedown', ev => ev.preventDefault());
+      btn.addEventListener('click', () => { hideEditorCtxMenu(); fn(); });
+      menu.appendChild(btn);
+    }
+
+    // Format
+    const hm = s.headingMarker;
+    if (hm) {
+      item(`${hm} H1 ${hm}`, () => Editor.applyHeading(1));
+      item(`${hm.repeat(2)} H2 ${hm.repeat(2)}`, () => Editor.applyHeading(2));
+      item(`${hm.repeat(3)} H3 ${hm.repeat(3)}`, () => Editor.applyHeading(3));
+    }
+    if (s.commentMarker)   item(`${s.commentMarker} Comment`, () => Editor.applyLineMarker(s.commentMarker));
+    if (s.boldMarker)      item(`${s.boldMarker} Bold`,       () => Editor.applyInlineMarker(s.boldMarker),      !sel);
+    if (s.italicMarker)    item(`${s.italicMarker} Italic`,   () => Editor.applyInlineMarker(s.italicMarker),    !sel);
+    if (s.underlineMarker) item(`${s.underlineMarker} Underline`, () => Editor.applyInlineMarker(s.underlineMarker), !sel);
+    if (s.strikeMarker)    item(`${s.strikeMarker} Strike`,   () => Editor.applyInlineMarker(s.strikeMarker),    !sel);
+
+    sep();
+
+    // Edit
+    item('Cut',   () => document.execCommand('cut'),  !sel);
+    item('Copy',  () => document.execCommand('copy'), !sel);
+    item('Paste', async () => {
+      try {
+        const text = await navigator.clipboard.readText();
+        ta.focus();
+        document.execCommand('insertText', false, text);
+        Editor.onInput();
+      } catch (_) {}
+    });
+
+    sep();
+
+    // Spell check toggle
+    item(`Spell check: ${ta.spellcheck ? 'on' : 'off'}`, () => { ta.spellcheck = !ta.spellcheck; });
+
+    document.body.appendChild(menu);
+    _edCtxMenu = menu;
+
+    // Clamp to viewport after paint
+    requestAnimationFrame(() => {
+      if (!_edCtxMenu) return;
+      const r = menu.getBoundingClientRect();
+      if (r.right  > window.innerWidth)  menu.style.left = Math.max(0, e.clientX - r.width)  + 'px';
+      if (r.bottom > window.innerHeight) menu.style.top  = Math.max(0, e.clientY - r.height) + 'px';
+    });
+  }
+
+  document.getElementById('ed-input').addEventListener('contextmenu', buildCtxMenu);
 
   // Search bar
   document.getElementById('search-input').addEventListener('input',  () => Editor.searchUpdate());

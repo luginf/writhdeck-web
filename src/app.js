@@ -1,6 +1,22 @@
 'use strict';
 // Main entry point
 
+let _edMenu      = null;
+let _openMenuFn  = null;
+let _menuNavLock = false;
+let _edCtxMenu   = null;
+
+function hideEditorCtxMenu() {
+  if (_edCtxMenu) { _edCtxMenu.remove(); _edCtxMenu = null; }
+}
+
+function showMainMenu() {
+  if (!_edMenu || !_openMenuFn) return;
+  _openMenuFn();
+  _edMenu.hidden = true;
+  setTimeout(() => { _edMenu.hidden = false; }, 0);
+}
+
 // ── File info dialog ──────────────────────────────────────────────────────
 
 async function showFileInfo() {
@@ -118,6 +134,22 @@ function onKeydown(e) {
 
   Browser.hideContextMenu();
 
+  // Menu arrow navigation — intercept at capture level regardless of focus.
+  if (_edMenu && !_edMenu.hidden && (key === 'ArrowDown' || key === 'ArrowUp')) {
+    e.preventDefault(); e.stopPropagation();
+    if (!_menuNavLock) {
+      _menuNavLock = true;
+      requestAnimationFrame(() => { _menuNavLock = false; });
+      const items = Array.from(_edMenu.querySelectorAll('button:not(:disabled)'));
+      const idx   = items.indexOf(document.activeElement);
+      const next  = key === 'ArrowDown'
+        ? items[(idx + 1) % items.length]
+        : items[(idx - 1 + items.length) % items.length];
+      if (next) next.focus();
+    }
+    return;
+  }
+
   // Global shortcuts (work anywhere, no active input focused)
   const focused = document.activeElement;
   const inInput = focused && (focused.tagName === 'INPUT' || focused.tagName === 'TEXTAREA' || focused.tagName === 'SELECT');
@@ -178,6 +210,7 @@ function onKeydown(e) {
         case 'p': Timer.isActive() ? Timer.pause() : Timer.toggle();
                   Editor.updateStatusBar(); break;
         case 'w': Editor.toggleTypewriter(); break;
+        case 'm': showMainMenu(); break;
         case 'q': Editor.close();            break;
         // any other key: just exit cmd mode (already done above)
       }
@@ -195,6 +228,8 @@ function onKeydown(e) {
 
     if (lkey === 'escape') {
       e.preventDefault(); e.stopPropagation();
+      if (_edCtxMenu) { hideEditorCtxMenu(); return; }
+      if (_edMenu && !_edMenu.hidden) { _edMenu.hidden = true; return; }
       const openDlg = document.querySelector('dialog[open]');
       if (openDlg) { openDlg.close(); return; }
       if (!document.getElementById('search-bar').hidden) { Editor.searchClose(); return; }
@@ -263,6 +298,9 @@ async function init() {
   const ta = document.getElementById('ed-input');
   ta.addEventListener('input',  () => Editor.onInput());
   ta.addEventListener('scroll', () => Editor.syncScroll());
+  // Update line/col on cursor move (click or keyboard navigation)
+  ta.addEventListener('click',   () => Editor.updateStatusBar());
+  ta.addEventListener('keyup',   () => Editor.updateStatusBar());
 
   // Header buttons
   document.getElementById('br-new-btn').addEventListener('click',    () => Browser.newDoc());
@@ -293,6 +331,7 @@ async function init() {
   // Main editor menu (≡ button)
   const menuBtn  = document.getElementById('ed-menu-btn');
   const edMenu   = document.getElementById('ed-menu');
+  _edMenu = edMenu;
 
   function execCmd(cmd) {
     edMenu.hidden = true;
@@ -313,6 +352,11 @@ async function init() {
       case 'stats':      Stats.show();               break;
       case 'info':       showFileInfo();             break;
       case 'timer':      Timer.toggle(); Editor.updateStatusBar(); break;
+      case 'ctx-menu':
+        State.settings.interceptContextMenu = !State.settings.interceptContextMenu;
+        saveSettings();
+        Editor.setMsg(State.settings.interceptContextMenu ? 'Right-click menu on' : 'Right-click menu off');
+        break;
       case 'config':     Settings.show();            break;
     }
   }
@@ -336,10 +380,26 @@ async function init() {
       btn.innerHTML = marker ? `<span>${marker} ${label}</span>` : `<span>${label}</span>`;
       btn.disabled  = !marker;
     });
+    // Update ctx-menu toggle label
+    const ctxBtn = edMenu.querySelector('[data-cmd="ctx-menu"]');
+    if (ctxBtn) ctxBtn.innerHTML = `Right-click menu <span class="hint">${s.interceptContextMenu ? 'on' : 'off'}</span>`;
     edMenu.hidden = false;
   }
+  _openMenuFn = openMenu;
 
-  menuBtn.addEventListener('click', e => { e.stopPropagation(); edMenu.hidden ? openMenu() : (edMenu.hidden = true); });
+  function menuItems() {
+    return Array.from(edMenu.querySelectorAll('button:not(:disabled)'));
+  }
+
+  // Prevent menu button from stealing textarea focus (preserves selection).
+  menuBtn.addEventListener('mousedown', e => e.preventDefault());
+  menuBtn.addEventListener('click', e => {
+    e.stopPropagation();
+    if (!edMenu.hidden) { edMenu.hidden = true; return; }
+    openMenu();
+    edMenu.hidden = true;
+    setTimeout(() => { edMenu.hidden = false; }, 0);
+  });
 
   document.getElementById('ed-more-cmd').addEventListener('click', () => {
     edMenu.hidden = true;
@@ -367,7 +427,85 @@ async function init() {
     btn.addEventListener('click', () => execCmd(btn.dataset.cmd));
   });
 
-  document.addEventListener('click', () => { edMenu.hidden = true; });
+  document.addEventListener('click', () => { edMenu.hidden = true; hideEditorCtxMenu(); });
+
+  // ── Editor right-click context menu ──────────────────────────────────────
+
+  function buildCtxMenu(e) {
+    if (!State.settings.interceptContextMenu) return;
+    e.preventDefault();
+    hideEditorCtxMenu();
+
+    const s   = State.settings;
+    const ta  = document.getElementById('ed-input');
+    const sel = ta.selectionStart !== ta.selectionEnd;
+
+    const menu = document.createElement('div');
+    menu.style.cssText = `position:fixed;left:${e.clientX}px;top:${e.clientY}px;
+      background:var(--bg-bar);border:1px solid var(--fg-bar);z-index:200;min-width:180px;`;
+
+    function sep() {
+      const d = document.createElement('div');
+      d.style.cssText = 'height:1px;background:var(--fg-bar);opacity:0.3;margin:3px 0;';
+      menu.appendChild(d);
+    }
+
+    function item(label, fn, disabled) {
+      const btn = document.createElement('button');
+      btn.textContent = label;
+      btn.disabled = !!disabled;
+      btn.style.cssText = 'display:block;width:100%;text-align:left;padding:5px 14px;' +
+        'border:none;background:none;font-family:var(--font-family);font-size:var(--font-size);color:var(--fg);';
+      btn.addEventListener('mousedown', ev => ev.preventDefault());
+      btn.addEventListener('click', () => { hideEditorCtxMenu(); fn(); });
+      menu.appendChild(btn);
+    }
+
+    // Format
+    const hm = s.headingMarker;
+    if (hm) {
+      item(`${hm} H1 ${hm}`, () => Editor.applyHeading(1));
+      item(`${hm.repeat(2)} H2 ${hm.repeat(2)}`, () => Editor.applyHeading(2));
+      item(`${hm.repeat(3)} H3 ${hm.repeat(3)}`, () => Editor.applyHeading(3));
+    }
+    if (s.commentMarker)   item(`${s.commentMarker} Comment`, () => Editor.applyLineMarker(s.commentMarker));
+    if (s.boldMarker)      item(`${s.boldMarker} Bold`,       () => Editor.applyInlineMarker(s.boldMarker),      !sel);
+    if (s.italicMarker)    item(`${s.italicMarker} Italic`,   () => Editor.applyInlineMarker(s.italicMarker),    !sel);
+    if (s.underlineMarker) item(`${s.underlineMarker} Underline`, () => Editor.applyInlineMarker(s.underlineMarker), !sel);
+    if (s.strikeMarker)    item(`${s.strikeMarker} Strike`,   () => Editor.applyInlineMarker(s.strikeMarker),    !sel);
+
+    sep();
+
+    // Edit
+    item('Cut',   () => document.execCommand('cut'),  !sel);
+    item('Copy',  () => document.execCommand('copy'), !sel);
+    item('Paste', async () => {
+      try {
+        const text = await navigator.clipboard.readText();
+        ta.focus();
+        document.execCommand('insertText', false, text);
+        Editor.onInput();
+      } catch (_) {}
+    });
+
+    sep();
+
+    // Spell check toggle
+    item(`Spell check: ${ta.spellcheck ? 'on' : 'off'}`, () => { ta.spellcheck = !ta.spellcheck; });
+
+    document.body.appendChild(menu);
+    _edCtxMenu = menu;
+
+    // Clamp to viewport after paint
+    requestAnimationFrame(() => {
+      if (!_edCtxMenu) return;
+      const r = menu.getBoundingClientRect();
+      if (r.right  > window.innerWidth)  menu.style.left = Math.max(0, e.clientX - r.width)  + 'px';
+      if (r.bottom > window.innerHeight) menu.style.top  = Math.max(0, e.clientY - r.height) + 'px';
+    });
+  }
+
+  document.getElementById('ed-input').addEventListener('contextmenu', buildCtxMenu);
 
   // Search bar
   document.getElementById('search-input').addEventListener('input',  () => Editor.searchUpdate());

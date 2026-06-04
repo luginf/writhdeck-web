@@ -5,7 +5,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Build
 
 ```sh
-make              # → writhdeck.html (single autonomous file, ~120 KB)
+make              # → writhdeck.html (single autonomous file, ~130 KB)
 make clean        # Remove writhdeck.html
 ```
 
@@ -108,13 +108,61 @@ To add a built-in scheme: add an entry to `SCHEMES` in `schemes.js`.
 - Daily stats use high-water mark: `updateDaily(id, wc)` only increases, never decreases
 - Cursor position saved as character offset in `State.cursors[id]`, persisted to `meta['cursors']`
 
+### Document name uniqueness
+
+`browser.js` enforces unique names: `nameExists(name, excludeId)` checks `State.docs`. On new doc creation, `uniqueName('Untitled')` auto-suggests `"Untitled (2)"` etc. if the base name is taken. Creating or renaming to an existing name shows an alert and cancels.
+
 ### Keyboard shortcuts
 
 Handled centrally in `onKeydown()` (`app.js`). Editor: `Ctrl+S` save, `Ctrl+Q` close, `Ctrl+F` find, `Ctrl+H` replace, `Ctrl+G` goto line, `Ctrl+L` line numbers, `Ctrl+D` dark/light, `Alt+T` timer, `Alt+C`/`Esc` command mode, `F11` TOC, `Alt+Enter` fullscreen. Browser: `n` new, `s` stats, `c` settings. Global override (when `interceptBrowserShortcuts`): `Ctrl+N` new doc.
 
-**Command mode** (`Alt+C` / `Esc`): enters a modal state (`_cmdMode = true`) where the next keystroke triggers a command — `f` find, `r` replace, `g` goto, `n` linenos, `d` dark, `o` toc, `c` config, `e` export .txt, `s` stats, `i` info, `t` timer, `p` pause, `w` typewriter, `q` close. Works in fullscreen (unlike `Esc` which the browser intercepts). Status bar shows all commands when in mode.
+**Command mode** (`Alt+C` / `Esc`): enters a modal state (`_cmdMode = true`) where the next keystroke triggers a command — `f` find, `r` replace, `g` goto, `n` linenos, `d` dark, `o` toc, `c` config, `e` export .txt, `s` stats, `i` info, `t` timer, `p` pause, `w` typewriter, `m` main menu, `q` close. Works in fullscreen (unlike `Esc` which the browser intercepts). Status bar shows all commands when in mode.
 
 **`≡` menu** (button `#ed-menu-btn`): single dropdown covering all editor actions. Opens with `openMenu()` in `app.js`. Sections: View, Search, Format (H1–H3 via `Editor.applyHeading(n)`, inline markers via `Editor.applyInlineMarker()`), Document, App. Format labels are dynamically generated from `State.settings.*Marker` values.
+
+The `≡` button uses `mousedown + preventDefault()` to prevent stealing focus from the textarea — selected text remains highlighted when the menu opens.
+
+**Menu keyboard navigation**: ArrowUp/ArrowDown navigate between enabled items (handled in `onKeydown` capture phase, works regardless of focus). Enter activates the focused item. Escape closes the menu.
+
+The menu open/show is deferred via `setTimeout(0)` to let any Firefox focus-activation click fire first (harmlessly, while the menu is still hidden).
+
+Module-level refs `_edMenu` / `_openMenuFn` allow `onKeydown` (outside `init()`) to open the menu via `showMainMenu()`.
+
+### Right-click context menu
+
+Controlled by `State.settings.interceptContextMenu` (default `true`). When active, intercepts `contextmenu` on `#ed-input` and shows a custom menu with:
+- **Format** — H1/H2/H3, Comment (always), inline styles (Bold/Italic/Underline/Strike, grayed out without selection) — only configured markers shown
+- **Edit** — Cut/Copy (grayed without selection), Paste (via `navigator.clipboard.readText()`)
+- **Spell check on/off** — toggles `spellcheck` attribute on the textarea
+
+All context menu buttons use `mousedown + preventDefault()` so the textarea keeps focus and selection during style actions. Menu is closed by Escape (priority in `onKeydown`) or any click outside.
+
+Toggle in `≡` menu → App section → "Right-click menu".
+
+### Status bar tokens
+
+`buildZone(spec)` in `Editor.updateStatusBar()` splits the spec string on whitespace and maps tokens:
+
+| Token | Output | Notes |
+|---|---|---|
+| `filename` | document name | empty in browser view |
+| `dirty` | `[+]` | only when unsaved |
+| `words` | `142w` | |
+| `chars` | `840c` | |
+| `lines` | `42L` | total line count |
+| `line` | `L12` | current cursor line |
+| `col` | `C5` | current cursor column |
+| `para` | `7§` | paragraphs (blank-line separated) |
+| `pages` | `3p` | estimated at 250 w/page |
+| `percent` | `68%` | word goal percentage |
+| `today` | `142↑` | daily high-water mark |
+| `goal` | `142/500` | today/goal, hidden if no goal set |
+| `reading` | `4min` | estimated reading time at 200 w/min |
+| `clock` | `14:32` | current time |
+| `timer` | timer display | respects `timerShow` setting |
+| anything else | literal text | |
+
+`line`/`col` update on textarea click and keyup (in addition to input events).
 
 ### Markup helpers (`Editor`)
 
@@ -136,3 +184,10 @@ Handled centrally in `onKeydown()` (`app.js`). Editor: `Ctrl+S` save, `Ctrl+Q` c
 2. If new file: add it to `JS_ORDER` in `build.py` and `JS_SRCS` in `Makefile`
 3. Wire events in `app.js` `init()`
 4. Run `make`
+
+### Firefox / extension notes
+
+- The `≡` menu uses `setTimeout(0)` on open to defer visibility past Firefox's focus-activation click. This fixes menu-doesn't-appear with multiple tabs.
+- `edMenu.focus()` was intentionally removed — calling `.focus()` on the menu div triggered silent event interception by extensions like NoScript.
+- Arrow key navigation uses the `onKeydown` document capture handler (not an `edMenu` keydown listener) so it works regardless of which element has focus.
+- If the menu opens but items don't activate: check for extensions (NoScript etc.) that may silently intercept DOM events. Works in Firefox private/incognito where extensions are typically disabled.

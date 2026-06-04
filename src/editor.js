@@ -412,7 +412,7 @@ const Editor = (() => {
     if (_cmdMode) {
       document.getElementById('ed-bar-left').textContent   = 'f:find  r:replace  g:goto  n:linenos  o:toc';
       document.getElementById('ed-bar-center').textContent = 'd:dark  c:config  e:export  s:stats  i:info';
-      document.getElementById('ed-bar-right').textContent  = 't:timer  p:pause  w:typewriter  q:close  ·ESC/Alt+C:exit·';
+      document.getElementById('ed-bar-right').textContent  = 't:timer  p:pause  w:typewriter  m:menu  q:close  ·ESC/Alt+C:exit·';
       return;
     }
     const s = State.settings;
@@ -426,12 +426,38 @@ const Editor = (() => {
         switch (tok) {
           case 'filename': return doc ? doc.name : '';
           case 'dirty':    return State.dirty ? '[+]' : '';
-          case 'words':    return `${wc}w`;
-          case 'chars':    return `${(ta().value || '').length}c`;
+          case 'words':    return doc ? `${wc}w` : '';
+          case 'chars':    return doc ? `${(ta().value || '').length}c` : '';
           case 'goal':     return s.wordGoal > 0 ? `${today}/${s.wordGoal}` : '';
           case 'clock':    return clk;
           case 'timer':    return s.timerShow ? Timer.format() : '';
-          default:         return tok;
+          case 'today':    return doc && today > 0 ? `${today}↑` : '';
+          case 'percent':  return (doc && s.wordGoal > 0) ? `${Math.min(100, Math.round(wc / s.wordGoal * 100))}%` : '';
+          case 'lines':    return doc ? `${(ta().value.match(/\n/g) || []).length + 1}L` : '';
+          case 'line': {
+            if (!doc) return '';
+            const pos    = ta().selectionStart || 0;
+            const before = ta().value.slice(0, pos);
+            return `L${(before.match(/\n/g) || []).length + 1}`;
+          }
+          case 'col': {
+            if (!doc) return '';
+            const pos    = ta().selectionStart || 0;
+            const before = ta().value.slice(0, pos);
+            return `C${pos - before.lastIndexOf('\n')}`;
+          }
+          case 'para': {
+            if (!doc) return '';
+            const count = ta().value.split(/\n{2,}/).filter(p => p.trim()).length;
+            return count ? `${count}§` : '';
+          }
+          case 'pages':   return (doc && wc > 0) ? `${Math.ceil(wc / 250)}p` : '';
+          case 'reading': {
+            if (!doc || !wc) return '';
+            const mins = Math.ceil(wc / 200);
+            return mins < 60 ? `${mins}min` : `${Math.floor(mins / 60)}h${mins % 60 ? (mins % 60) + 'm' : ''}`;
+          }
+          default: return tok;
         }
       }).filter(Boolean).join('  ');
     }
