@@ -144,4 +144,7 @@ Add an entry to the `SCHEMES` object in `src/schemes.js`. Each scheme needs 9 da
 
 ## License
 
-MIT
+Copyright (C) 2026 by Luginfo — Zero-Clause BSD License
+
+Permission to use, copy, modify, and/or distribute this software for any purpose with or without fee is hereby granted. The software is provided "as is" without warranty of any kind.
+

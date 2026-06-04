@@ -68,6 +68,28 @@ input[type="color"] { width: 40px; height: 24px; padding: 1px; border: 1px solid
 #br-title { font-size: 1.1em; font-weight: bold; color: var(--fg); }
 #br-header-btns { display: flex; gap: 4px; }
 #br-new-btn, #br-import-btn { font-size: 1.1em; padding: 0 8px; }
+#br-help-btn { font-size: 0.85em; padding: 0 7px; font-weight: bold; }
+
+#br-help-menu {
+  position: fixed;
+  right: 8px;
+  top: 40px;
+  background: var(--bg-bar);
+  border: 1px solid var(--fg-bar);
+  display: flex;
+  flex-direction: column;
+  z-index: 100;
+  min-width: 160px;
+}
+#br-help-menu[hidden] { display: none; }
+#br-help-menu button,
+#br-help-menu a {
+  display: block; text-align: left; padding: 5px 16px; border: none;
+  font-family: var(--font-family); font-size: var(--font-size);
+  color: var(--fg); background: none; text-decoration: none; cursor: pointer;
+}
+#br-help-menu button:hover,
+#br-help-menu a:hover { background: var(--bg-sel); color: var(--fg); }
 
 #br-list {
   flex: 1;

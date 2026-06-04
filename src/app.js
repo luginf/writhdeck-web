@@ -1,10 +1,13 @@
 'use strict';
 // Main entry point
 
+const README_CONTENT = {{README}};
+
 let _edMenu      = null;
 let _openMenuFn  = null;
 let _menuNavLock = false;
 let _edCtxMenu   = null;
+let _helpMenu    = null;
 
 function hideEditorCtxMenu() {
   if (_edCtxMenu) { _edCtxMenu.remove(); _edCtxMenu = null; }
@@ -133,6 +136,7 @@ function onKeydown(e) {
   const inBrowser = !document.getElementById('browser').hidden;
 
   Browser.hideContextMenu();
+  if (_helpMenu && !_helpMenu.hidden && lkey === 'escape') { _helpMenu.hidden = true; return; }
 
   // Menu arrow navigation — intercept at capture level regardless of focus.
   if (_edMenu && !_edMenu.hidden && (key === 'ArrowDown' || key === 'ArrowUp')) {
@@ -309,6 +313,29 @@ async function init() {
   document.getElementById('br-opendisk-btn').addEventListener('click', () => Browser.openFromDisk());
   document.getElementById('ed-close-btn').addEventListener('click', () => Editor.close());
 
+  // Help menu (? button)
+  const helpBtn  = document.getElementById('br-help-btn');
+  const helpMenu = document.getElementById('br-help-menu');
+  _helpMenu = helpMenu;
+
+  helpBtn.addEventListener('mousedown', e => e.preventDefault());
+  helpBtn.addEventListener('click', e => {
+    e.stopPropagation();
+    helpMenu.hidden = !helpMenu.hidden;
+  });
+
+  document.getElementById('br-help-readme').addEventListener('click', async () => {
+    helpMenu.hidden = true;
+    let doc = State.docs.find(d => d.name === 'README.md');
+    if (!doc) {
+      doc = { name: 'README.md', content: README_CONTENT, created: Date.now(), modified: Date.now() };
+      await DB.saveDoc(doc);
+      State.docs.push(doc);
+      Browser.render();
+    }
+    await Editor.open(doc);
+  });
+
   // File import input
   const fileInput = document.getElementById('file-import-input');
   fileInput.addEventListener('change', async () => {
@@ -427,7 +454,7 @@ async function init() {
     btn.addEventListener('click', () => execCmd(btn.dataset.cmd));
   });
 
-  document.addEventListener('click', () => { edMenu.hidden = true; hideEditorCtxMenu(); });
+  document.addEventListener('click', () => { edMenu.hidden = true; helpMenu.hidden = true; hideEditorCtxMenu(); });
 
   // ── Editor right-click context menu ──────────────────────────────────────
 
