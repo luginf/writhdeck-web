@@ -591,4 +591,12 @@ async function init() {
   }
 }
 
-document.addEventListener('DOMContentLoaded', init);
+document.addEventListener('DOMContentLoaded', () => {
+  init().catch(err => {
+    console.error('Writhdeck init error:', err);
+    document.body.innerHTML +=
+      `<div style="position:fixed;bottom:0;left:0;right:0;padding:12px;background:#700;color:#fff;font-family:monospace;font-size:12px">
+        Init error: ${err.message || err}. Open DevTools console for details.
+      </div>`;
+  });
+});

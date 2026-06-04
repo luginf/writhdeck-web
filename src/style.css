@@ -11,7 +11,7 @@
   --bg2:     #1a1a1a;
 
   --font-family:   monospace;
-  --font-size:     14px;
+  --font-size:     18px;
   --line-spacing:  1.5;
   --margin-x:      80px;
   --margin-y:      40px;
@@ -175,10 +175,11 @@ input[type="color"] { width: 40px; height: 24px; padding: 1px; border: 1px solid
   background: var(--bg);
 }
 
-/* Line numbers */
+/* Line numbers — visibility via style.display in JS */
 #ed-linenos {
   flex-shrink: 0;
   width: 40px;
+  display: none;   /* hidden by default */
   background: var(--bg-bar);
   border-right: 1px solid var(--bg2);
   overflow: hidden;
@@ -192,24 +193,23 @@ input[type="color"] { width: 40px; height: 24px; padding: 1px; border: 1px solid
   pointer-events: none;
   white-space: pre;
 }
-#ed-linenos[hidden] { display: none; }
+/* visibility via style.display in JS */
 
 /* Typewriter mode */
 #editor.typewriter #ed-bar { border-top: 2px solid var(--heading); }
 .hl-dim         { color: var(--comment); }
 .hl-heading.hl-dim { color: var(--heading); opacity: 0.35; }
 
-/* TOC side panel */
+/* TOC side panel — visibility controlled via style.display in JS */
 #toc-panel {
   width: 220px;
   flex-shrink: 0;
-  display: flex;
+  display: none;        /* hidden by default; JS sets display:flex to show */
   flex-direction: column;
   background: var(--bg-bar);
   border-left: 1px solid var(--bg2);
   overflow: hidden;
 }
-#toc-panel[hidden] { display: none; }
 
 #toc-panel-header {
   padding: 6px 12px;

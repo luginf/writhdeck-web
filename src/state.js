@@ -18,7 +18,7 @@ const State = {
   settings: {
     scheme: 'default',
     darkMode: true,
-    fontSize: 14,
+    fontSize: 18,
     fontFamily: 'monospace',
     marginX: 80,
     marginY: 40,

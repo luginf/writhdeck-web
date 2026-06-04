@@ -233,7 +233,7 @@ const Editor = (() => {
 
   function updateLineNumbers() {
     const el = document.getElementById('ed-linenos');
-    if (!el || el.hidden) return;
+    if (!el || el.style.display === 'none') return;
     const count = (ta().value.match(/\n/g) || []).length + 1;
     el.textContent = Array.from({ length: count }, (_, i) => i + 1).join('\n');
     el.scrollTop = ta().scrollTop;
@@ -242,8 +242,8 @@ const Editor = (() => {
   function applyLineNumbers() {
     const el = document.getElementById('ed-linenos');
     if (!el) return;
-    const show = State.settings.lineNumbers;
-    el.hidden = !show;
+    const show = !!State.settings.lineNumbers;
+    el.style.display = show ? 'block' : 'none';
     if (show) updateLineNumbers();
   }
 
@@ -457,7 +457,9 @@ const Editor = (() => {
             const mins = Math.ceil(wc / 200);
             return mins < 60 ? `${mins}min` : `${Math.floor(mins / 60)}h${mins % 60 ? (mins % 60) + 'm' : ''}`;
           }
-          default: return tok;
+          case 'space':    return ' ';
+          case 'help_bar': return '';
+          default:         return tok;
         }
       }).filter(Boolean).join('  ');
     }
