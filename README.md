@@ -4,7 +4,7 @@ A distraction-free writing app that runs as a single self-contained HTML file �
 
 ## Features
 
-- **Single-file**: the entire app is one `writhdeck.html` (~130 KB). Copy it anywhere, it just works.
+- **Single-file**: the entire app is one `writhdeck.html` (~146 KB). Copy it anywhere, it just works.
 - **Document browser**: create, rename, delete, and favourite documents stored in IndexedDB. Document names are unique — duplicates are auto-suggested as `"Untitled (2)"` etc.
 - **Disk file support** (Chrome/Edge/Brave): open individual files or watch a folder — edits go straight back to disk via the File System Access API.
 - **Syntax highlighting overlay**: headings, comments, and inline markers (bold, italic, underline, strikethrough) are coloured in real time without leaving the textarea.
@@ -20,13 +20,13 @@ A distraction-free writing app that runs as a single self-contained HTML file �
 - **INI config**: load a `writhdeck.ini` file to share settings across installs.
 - **Status bar**: fully customisable left/centre/right slots with tokens — see [Status bar tokens](#status-bar-tokens).
 - **`≡` menu**: all commands accessible from a single dropdown — keyboard-navigable (↑↓ + Enter), with format options (H1–H3, bold, italic…), search, export, settings, and more. Opening the menu preserves any active text selection.
-- **Right-click context menu**: format, cut/copy/paste, and spell-check toggle — can be toggled on/off from the `≡` menu.
-- **Command mode** (`Esc` or `Alt+C`): modal keyboard interface for all editor commands without Ctrl shortcuts.
+- **Right-click context menu**: format, cut/copy/paste, and spell-check toggle (editor); Open / Info / Rename / Export / Delete (browser document list).
+- **Command mode** (`Esc` or `Alt+C`): interactive status bar showing all commands as clickable buttons. Navigate with `←`/`→`, confirm with `Enter`, or click with the mouse.
 
 ## Build
 
 ```sh
-make        # produces writhdeck.html
+make        # produces writhdeck.html (~146 KB)
 make clean  # removes writhdeck.html
 ```
 
@@ -59,7 +59,14 @@ make clean  # removes writhdeck.html
 
 ### Command mode (`Alt+C` or `Esc`)
 
-Press the trigger key, then one letter. Works in fullscreen (`Alt+C`).
+The status bar becomes an interactive row of command buttons. Works in fullscreen (`Alt+C`).
+
+| Input | Action |
+|---|---|
+| `←` / `→` | Move selection between commands |
+| `Enter` | Execute selected command |
+| *letter* | Execute command directly (e.g. `f` = Find) |
+| Mouse click | Execute command directly |
 
 | Key | Action | Key | Action |
 |---|---|---|---|
@@ -76,6 +83,8 @@ Press the trigger key, then one letter. Works in fullscreen (`Alt+C`).
 
 | Key | Action |
 |---|---|
+| `↑` / `↓` | Navigate document list |
+| `Enter` | Open selected document |
 | `n` | New document |
 | `o` | Open file from disk |
 | `w` | Watch a folder |
@@ -103,6 +112,7 @@ The three status bar zones (left / centre / right) are configured as space-separ
 | `reading` | `9min` | Estimated reading time at 200 w/min |
 | `clock` | `14:32` | Current time |
 | `timer` | `24:07` | Writing timer display |
+| `space` | ` ` | Single space (explicit separator) |
 | *(anything else)* | literal | Fixed text, separators, etc. |
 
 Default: Left `filename dirty words` · Center *(empty)* · Right `goal clock timer`

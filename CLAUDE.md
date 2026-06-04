@@ -5,7 +5,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Build
 
 ```sh
-make              # → writhdeck.html (single autonomous file, ~130 KB)
+make              # → writhdeck.html (single autonomous file, ~146 KB)
 make clean        # Remove writhdeck.html
 ```
 
@@ -116,7 +116,13 @@ To add a built-in scheme: add an entry to `SCHEMES` in `schemes.js`.
 
 Handled centrally in `onKeydown()` (`app.js`). Editor: `Ctrl+S` save, `Ctrl+Q` close, `Ctrl+F` find, `Ctrl+H` replace, `Ctrl+G` goto line, `Ctrl+L` line numbers, `Ctrl+D` dark/light, `Alt+T` timer, `Alt+C`/`Esc` command mode, `F11` TOC, `Alt+Enter` fullscreen. Browser: `n` new, `s` stats, `c` settings. Global override (when `interceptBrowserShortcuts`): `Ctrl+N` new doc.
 
-**Command mode** (`Alt+C` / `Esc`): enters a modal state (`_cmdMode = true`) where the next keystroke triggers a command — `f` find, `r` replace, `g` goto, `n` linenos, `d` dark, `o` toc, `c` config, `e` export .txt, `s` stats, `i` info, `t` timer, `p` pause, `w` typewriter, `m` main menu, `q` close. Works in fullscreen (unlike `Esc` which the browser intercepts). Status bar shows all commands when in mode.
+**Command mode** (`Alt+C` / `Esc`): enters a modal state (`_cmdMode = true`). The status bar replaces its three zones with a single row of clickable `<button class="cmd-btn">` elements (one per command), rendered by `updateStatusBar()` via `_CMD_LIST` in `editor.js`. Navigation:
+- **Letter key** — executes the command directly and exits cmd mode
+- **← / →** — moves selection via `Editor.cmdNavMove(±1)`, which updates `_cmdNavIdx` and re-renders the bar; the active button gets class `.cmd-btn.active` (highlighted in `--heading` color + underline)
+- **Enter** — dispatches `writhdeck-cmd` CustomEvent with `Editor.getCmdNavKey()`; the listener in `app.js` calls `exitCmdMode()` then executes the command
+- **Mouse click** — button `mousedown` (with `preventDefault()`) dispatches `writhdeck-cmd`; the same listener handles it
+
+`_cmdNavIdx` is stored in `editor.js` (JS state, not DOM focus) so it survives `updateStatusBar()` re-renders from the clock interval. `exitCmdMode()` resets `_cmdNavIdx = -1`.
 
 **`≡` menu** (button `#ed-menu-btn`): single dropdown covering all editor actions. Opens with `openMenu()` in `app.js`. Sections: View, Search, Format (H1–H3 via `Editor.applyHeading(n)`, inline markers via `Editor.applyInlineMarker()`), Document, App. Format labels are dynamically generated from `State.settings.*Marker` values.
 
@@ -128,7 +134,7 @@ The menu open/show is deferred via `setTimeout(0)` to let any Firefox focus-acti
 
 Module-level refs `_edMenu` / `_openMenuFn` allow `onKeydown` (outside `init()`) to open the menu via `showMainMenu()`.
 
-### Right-click context menu
+### Right-click context menu (editor)
 
 Controlled by `State.settings.interceptContextMenu` (default `true`). When active, intercepts `contextmenu` on `#ed-input` and shows a custom menu with:
 - **Format** — H1/H2/H3, Comment (always), inline styles (Bold/Italic/Underline/Strike, grayed out without selection) — only configured markers shown
@@ -138,6 +144,14 @@ Controlled by `State.settings.interceptContextMenu` (default `true`). When activ
 All context menu buttons use `mousedown + preventDefault()` so the textarea keeps focus and selection during style actions. Menu is closed by Escape (priority in `onKeydown`) or any click outside.
 
 Toggle in `≡` menu → App section → "Right-click menu".
+
+### Right-click context menu (browser)
+
+Right-clicking a document row in `browser.js` shows a menu via `showContextMenu(doc, e)`: Open, **Info**, Rename, Export as .txt, Export as .md, Stats, Delete. "Info" dispatches `writhdeck-show-info` CustomEvent with the doc object; the listener in `app.js` calls `showFileInfo(doc)`. `showFileInfo` accepts an optional `docArg` so it can show info for a document that isn't currently open.
+
+### Browser keyboard navigation
+
+`↑` / `↓` in the browser panel (no input focused) navigates the document list. The selected row receives class `.br-nav-item.br-focused` (accent-coloured left border via `box-shadow: inset 3px 0 0 var(--heading)`). Navigation state is tracked purely via the CSS class — no DOM focus involved. `Enter` calls `.click()` on the focused row to open the document. The `.br-focused` class is cleared when `render()` rebuilds the list.
 
 ### Status bar tokens
 
@@ -160,6 +174,8 @@ Toggle in `≡` menu → App section → "Right-click menu".
 | `reading` | `4min` | estimated reading time at 200 w/min |
 | `clock` | `14:32` | current time |
 | `timer` | timer display | respects `timerShow` setting |
+| `space` | ` ` | single space (explicit separator) |
+| `help_bar` | *(empty)* | reserved token, outputs nothing |
 | anything else | literal text | |
 
 `line`/`col` update on textarea click and keyup (in addition to input events).
