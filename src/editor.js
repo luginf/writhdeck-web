@@ -537,13 +537,20 @@ const Editor = (() => {
   let _matchIdx   = -1;
 
   function searchOpen(withReplace = false) {
-    const bar = document.getElementById('search-bar');
+    const bar   = document.getElementById('search-bar');
+    const input = document.getElementById('search-input');
+    // Ctrl+F while find bar is open → close
+    if (!bar.hidden && !withReplace && document.getElementById('replace-row').hidden) {
+      searchClose();
+      return;
+    }
     bar.hidden = false;
     document.getElementById('replace-row').hidden   = !withReplace;
     document.getElementById('replace-one').hidden   = !withReplace;
     document.getElementById('replace-all').hidden   = !withReplace;
-    document.getElementById('search-input').focus();
-    if (_searchTerm) document.getElementById('search-input').value = _searchTerm;
+    if (_searchTerm) { input.value = _searchTerm; }
+    input.focus();
+    input.select();
     searchUpdate();
   }
 

@@ -378,6 +378,11 @@ const Settings = (() => {
     document.getElementById('settings-close').addEventListener('click', () => {
       document.getElementById('settings-dlg').close();
     });
+    document.getElementById('settings-reset').addEventListener('click', async () => {
+      if (!confirm('Reset all settings to defaults? This cannot be undone.')) return;
+      await DB.setMeta('iniText', null);
+      location.reload();
+    });
     document.getElementById('scheme-new-btn').addEventListener('click', newScheme);
     document.getElementById('scheme-delete-btn').addEventListener('click', deleteScheme);
     document.getElementById('misc-export-all-btn').addEventListener('click', exportAll);

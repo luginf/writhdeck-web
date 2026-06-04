@@ -24,7 +24,7 @@ const State = {
     marginY: 40,
     lineSpacing: 1.5,
     headingMarker: '=',
-    commentMarker: '%',
+    commentMarker: '% ',
     boldMarker: '**',
     italicMarker: '//',
     underlineMarker: '__',

@@ -73,9 +73,10 @@ function parseBool(v) {
   return /^(yes|1|true|on)$/i.test(String(v).trim());
 }
 
-// Strips inline comments (# or % preceded by whitespace)
+// Strips inline comments (# preceded by whitespace). % is line-start-only.
+// Leading whitespace trimmed; trailing preserved so '% ' marker round-trips correctly.
 function stripComment(v) {
-  return v.replace(/\s+[#%].*$/, '').trim();
+  return v.replace(/\s+#.*$/, '').replace(/^\s+/, '');
 }
 
 // ── Parser ────────────────────────────────────────────────────────────────
@@ -159,7 +160,7 @@ function writeIni(s, allSchemes) {
   out += `line_spacing   = ${s.lineSpacing || 100}` + nl;
   out += `word_goal      = ${s.wordGoal  || 0}` + nl;
   out += `heading_marker       = ${s.headingMarker   || '='}` + nl;
-  out += `comment_marker       = ${s.commentMarker   || '%'}` + nl;
+  out += `comment_marker       = ${s.commentMarker   || '% '}` + nl;
   out += `bold_marker          = ${s.boldMarker      || '**'}` + nl;
   out += `italic_marker        = ${s.italicMarker    || '//'}` + nl;
   out += `underline_marker     = ${s.underlineMarker || '__'}` + nl;
