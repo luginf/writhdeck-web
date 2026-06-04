@@ -120,6 +120,7 @@ input[type="color"] { width: 40px; height: 24px; padding: 1px; border: 1px solid
   gap: 8px;
 }
 .br-item:hover { background: var(--bg-bar); }
+.br-item.br-focused { box-shadow: inset 3px 0 0 var(--heading); background: var(--bg-bar); color: var(--fg); }
 .br-item.selected { background: var(--bg-sel); color: var(--fg); }
 .br-item-name { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .br-item-meta { font-size: 0.75em; color: var(--fg-bar); white-space: nowrap; }
@@ -314,7 +315,8 @@ input[type="color"] { width: 40px; height: 24px; padding: 1px; border: 1px solid
   white-space: nowrap;
 }
 .cmd-btn:hover { background: var(--bg2); color: var(--fg); }
-.cmd-btn b { color: var(--fg); font-weight: bold; }
+.cmd-btn.active { color: var(--heading); text-decoration: underline; }
+.cmd-btn b { font-weight: bold; }
 .cmd-exit { opacity: 0.5; padding-left: 6px; }
 
 
@@ -1624,6 +1626,12 @@ const Editor = (() => {
   let _clockId        = null;
   let _tocRefresh     = null;
   let _cmdMode        = false;
+  let _cmdNavIdx      = -1;
+  const _CMD_LIST = [
+    ['f','find'], ['r','replace'], ['g','goto'], ['n','linenos'], ['o','toc'],
+    ['d','dark'],  ['c','config'], ['e','export'], ['s','stats'], ['i','info'],
+    ['t','timer'], ['p','pause'], ['w','typewriter'], ['m','menu'], ['q','close'],
+  ];
   let _typewriter     = false;
   let _wc = 0;
 
@@ -1999,20 +2007,36 @@ const Editor = (() => {
   // ── Command mode (ESC) ───────────────────────────────────────────────────
 
   function enterCmdMode() {
-    _cmdMode = true;
+    _cmdMode   = true;
+    _cmdNavIdx = -1;
     document.getElementById('ed-bar').classList.add('cmd-mode');
     document.getElementById('ed-menu-btn').classList.add('active');
     updateStatusBar();
   }
 
   function exitCmdMode() {
-    _cmdMode = false;
+    _cmdMode   = false;
+    _cmdNavIdx = -1;
     document.getElementById('ed-bar').classList.remove('cmd-mode');
     document.getElementById('ed-menu-btn').classList.remove('active');
     updateStatusBar();
   }
 
   function isCmdMode() { return _cmdMode; }
+
+  function cmdNavMove(delta) {
+    if (!_cmdMode) return;
+    const n = _CMD_LIST.length;
+    _cmdNavIdx = _cmdNavIdx === -1
+      ? (delta > 0 ? 0 : n - 1)
+      : (_cmdNavIdx + delta + n) % n;
+    updateStatusBar();
+  }
+
+  function getCmdNavKey() {
+    if (_cmdNavIdx < 0 || _cmdNavIdx >= _CMD_LIST.length) return null;
+    return _CMD_LIST[_cmdNavIdx][0];
+  }
 
   // ── Messages ──────────────────────────────────────────────────────────────
 
@@ -2028,16 +2052,12 @@ const Editor = (() => {
 
   function updateStatusBar() {
     if (_cmdMode) {
-      const cmds = [
-        ['f','find'], ['r','replace'], ['g','goto'], ['n','linenos'], ['o','toc'],
-        ['d','dark'],  ['c','config'], ['e','export'], ['s','stats'], ['i','info'],
-        ['t','timer'], ['p','pause'], ['w','typewriter'], ['m','menu'], ['q','close'],
-      ];
       const bar = document.getElementById('ed-bar-left');
       bar.innerHTML = '';
-      cmds.forEach(([key, label]) => {
+      _CMD_LIST.forEach(([key, label], i) => {
         const btn = document.createElement('button');
-        btn.className = 'cmd-btn';
+        btn.className = 'cmd-btn' + (i === _cmdNavIdx ? ' active' : '');
+        btn.dataset.cmd = key;
         btn.innerHTML = `<b>${key}</b>:${label}`;
         btn.addEventListener('mousedown', e => {
           e.preventDefault();
@@ -2236,7 +2256,7 @@ const Editor = (() => {
     saveCursorPos, applyLineNumbers,
     toggleTypewriter, typewriterScroll, toggleLineNumbers, gotoLine, gotoLineGo, gotoLineClose,
     applyLineMarker, applyInlineMarker, applyHeading,
-    enterCmdMode, exitCmdMode, isCmdMode,
+    enterCmdMode, exitCmdMode, isCmdMode, cmdNavMove, getCmdNavKey,
     searchOpen, searchClose, searchUpdate, searchNext, searchPrev, replaceOne, replaceAll,
     exportDoc
   };
@@ -2307,7 +2327,8 @@ const Browser = (() => {
 
   function docRow(doc, opts) {
     const row = document.createElement('div');
-    row.className = 'br-item';
+    row.className = 'br-item br-nav-item';
+    row.tabIndex = -1;
     if (State.doc && State.doc.id === doc.id) row.classList.add('selected');
 
     // No pin for folder files (they are ephemeral, not in IDB)
@@ -2379,6 +2400,7 @@ const Browser = (() => {
       background:var(--bg-bar);border:1px solid var(--fg-bar);z-index:200;min-width:140px;`;
     const items = [
       ['Open',          () => Editor.open(doc)],
+      ['Info',          () => document.dispatchEvent(new CustomEvent('writhdeck-show-info', { detail: doc }))],
       ['Rename',        () => renameDoc(doc)],
       ['Export as .txt',() => exportDocFrom(doc, 'txt')],
       ['Export as .md', () => exportDocFrom(doc, 'md')],
@@ -2498,7 +2520,8 @@ const Browser = (() => {
 
   function iniRow(container) {
     const row = document.createElement('div');
-    row.className = 'br-item';
+    row.className = 'br-item br-nav-item';
+    row.tabIndex = -1;
     if (State.doc && State.doc.isIni) row.classList.add('selected');
 
     const ico = document.createElement('span');
@@ -3078,8 +3101,8 @@ function showMainMenu() {
 
 // ── File info dialog ──────────────────────────────────────────────────────
 
-async function showFileInfo() {
-  const doc = State.doc;
+async function showFileInfo(docArg) {
+  const doc = docArg || State.doc;
   if (!doc) return;
   const body = document.getElementById('info-body');
   body.innerHTML = '';
@@ -3250,6 +3273,17 @@ function onKeydown(e) {
     // Command mode — intercept ALL keys while active
     if (Editor.isCmdMode()) {
       e.preventDefault(); e.stopPropagation();
+      if (key === 'ArrowRight' || key === 'ArrowLeft') {
+        Editor.cmdNavMove(key === 'ArrowRight' ? 1 : -1);
+        return;
+      }
+      if (key === 'Enter') {
+        const cmd = Editor.getCmdNavKey();
+        if (cmd) {
+          document.dispatchEvent(new CustomEvent('writhdeck-cmd', { detail: cmd }));
+          return;
+        }
+      }
       Editor.exitCmdMode();
       switch (lkey) {
         case 'f': Editor.searchOpen(false);  break;
@@ -3311,6 +3345,24 @@ function onKeydown(e) {
 
   // Browser shortcuts (no input focused)
   if (inBrowser && !inInput) {
+    if (key === 'ArrowDown' || key === 'ArrowUp') {
+      e.preventDefault();
+      const items = Array.from(document.querySelectorAll('#br-list .br-nav-item'));
+      if (!items.length) return;
+      const cur = document.querySelector('#br-list .br-nav-item.br-focused');
+      const idx = cur ? items.indexOf(cur) : -1;
+      const next = idx === -1
+        ? (key === 'ArrowDown' ? 0 : items.length - 1)
+        : key === 'ArrowDown' ? (idx + 1) % items.length : (idx - 1 + items.length) % items.length;
+      if (cur) cur.classList.remove('br-focused');
+      items[next].classList.add('br-focused');
+      items[next].scrollIntoView({ block: 'nearest' });
+      return;
+    }
+    if (key === 'Enter') {
+      const cur = document.querySelector('#br-list .br-nav-item.br-focused');
+      if (cur) { e.preventDefault(); cur.click(); return; }
+    }
     if (lkey === 'n') { e.preventDefault(); Browser.newDoc();        return; }
     if (lkey === 'o' && Browser.hasFSA) { e.preventDefault(); Browser.openFromDisk(); return; }
     if (lkey === 'w' && Browser.hasFSA) { e.preventDefault(); Browser.openFolder();   return; }
@@ -3621,6 +3673,9 @@ async function init() {
 
   // Settings
   Settings.initEvents();
+
+  // File info from browser context menu
+  document.addEventListener('writhdeck-show-info', e => showFileInfo(e.detail));
 
   // Command mode clicks from status bar buttons
   document.addEventListener('writhdeck-cmd', e => {

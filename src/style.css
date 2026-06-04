@@ -113,6 +113,7 @@ input[type="color"] { width: 40px; height: 24px; padding: 1px; border: 1px solid
   gap: 8px;
 }
 .br-item:hover { background: var(--bg-bar); }
+.br-item.br-focused { box-shadow: inset 3px 0 0 var(--heading); background: var(--bg-bar); color: var(--fg); }
 .br-item.selected { background: var(--bg-sel); color: var(--fg); }
 .br-item-name { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .br-item-meta { font-size: 0.75em; color: var(--fg-bar); white-space: nowrap; }
@@ -307,7 +308,8 @@ input[type="color"] { width: 40px; height: 24px; padding: 1px; border: 1px solid
   white-space: nowrap;
 }
 .cmd-btn:hover { background: var(--bg2); color: var(--fg); }
-.cmd-btn b { color: var(--fg); font-weight: bold; }
+.cmd-btn.active { color: var(--heading); text-decoration: underline; }
+.cmd-btn b { font-weight: bold; }
 .cmd-exit { opacity: 0.5; padding-left: 6px; }
 
 

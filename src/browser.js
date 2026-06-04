@@ -62,7 +62,8 @@ const Browser = (() => {
 
   function docRow(doc, opts) {
     const row = document.createElement('div');
-    row.className = 'br-item';
+    row.className = 'br-item br-nav-item';
+    row.tabIndex = -1;
     if (State.doc && State.doc.id === doc.id) row.classList.add('selected');
 
     // No pin for folder files (they are ephemeral, not in IDB)
@@ -134,6 +135,7 @@ const Browser = (() => {
       background:var(--bg-bar);border:1px solid var(--fg-bar);z-index:200;min-width:140px;`;
     const items = [
       ['Open',          () => Editor.open(doc)],
+      ['Info',          () => document.dispatchEvent(new CustomEvent('writhdeck-show-info', { detail: doc }))],
       ['Rename',        () => renameDoc(doc)],
       ['Export as .txt',() => exportDocFrom(doc, 'txt')],
       ['Export as .md', () => exportDocFrom(doc, 'md')],
@@ -253,7 +255,8 @@ const Browser = (() => {
 
   function iniRow(container) {
     const row = document.createElement('div');
-    row.className = 'br-item';
+    row.className = 'br-item br-nav-item';
+    row.tabIndex = -1;
     if (State.doc && State.doc.isIni) row.classList.add('selected');
 
     const ico = document.createElement('span');

@@ -22,8 +22,8 @@ function showMainMenu() {
 
 // ── File info dialog ──────────────────────────────────────────────────────
 
-async function showFileInfo() {
-  const doc = State.doc;
+async function showFileInfo(docArg) {
+  const doc = docArg || State.doc;
   if (!doc) return;
   const body = document.getElementById('info-body');
   body.innerHTML = '';
@@ -194,6 +194,17 @@ function onKeydown(e) {
     // Command mode — intercept ALL keys while active
     if (Editor.isCmdMode()) {
       e.preventDefault(); e.stopPropagation();
+      if (key === 'ArrowRight' || key === 'ArrowLeft') {
+        Editor.cmdNavMove(key === 'ArrowRight' ? 1 : -1);
+        return;
+      }
+      if (key === 'Enter') {
+        const cmd = Editor.getCmdNavKey();
+        if (cmd) {
+          document.dispatchEvent(new CustomEvent('writhdeck-cmd', { detail: cmd }));
+          return;
+        }
+      }
       Editor.exitCmdMode();
       switch (lkey) {
         case 'f': Editor.searchOpen(false);  break;
@@ -255,6 +266,24 @@ function onKeydown(e) {
 
   // Browser shortcuts (no input focused)
   if (inBrowser && !inInput) {
+    if (key === 'ArrowDown' || key === 'ArrowUp') {
+      e.preventDefault();
+      const items = Array.from(document.querySelectorAll('#br-list .br-nav-item'));
+      if (!items.length) return;
+      const cur = document.querySelector('#br-list .br-nav-item.br-focused');
+      const idx = cur ? items.indexOf(cur) : -1;
+      const next = idx === -1
+        ? (key === 'ArrowDown' ? 0 : items.length - 1)
+        : key === 'ArrowDown' ? (idx + 1) % items.length : (idx - 1 + items.length) % items.length;
+      if (cur) cur.classList.remove('br-focused');
+      items[next].classList.add('br-focused');
+      items[next].scrollIntoView({ block: 'nearest' });
+      return;
+    }
+    if (key === 'Enter') {
+      const cur = document.querySelector('#br-list .br-nav-item.br-focused');
+      if (cur) { e.preventDefault(); cur.click(); return; }
+    }
     if (lkey === 'n') { e.preventDefault(); Browser.newDoc();        return; }
     if (lkey === 'o' && Browser.hasFSA) { e.preventDefault(); Browser.openFromDisk(); return; }
     if (lkey === 'w' && Browser.hasFSA) { e.preventDefault(); Browser.openFolder();   return; }
@@ -565,6 +594,9 @@ async function init() {
 
   // Settings
   Settings.initEvents();
+
+  // File info from browser context menu
+  document.addEventListener('writhdeck-show-info', e => showFileInfo(e.detail));
 
   // Command mode clicks from status bar buttons
   document.addEventListener('writhdeck-cmd', e => {

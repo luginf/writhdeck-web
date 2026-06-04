@@ -8,6 +8,12 @@ const Editor = (() => {
   let _clockId        = null;
   let _tocRefresh     = null;
   let _cmdMode        = false;
+  let _cmdNavIdx      = -1;
+  const _CMD_LIST = [
+    ['f','find'], ['r','replace'], ['g','goto'], ['n','linenos'], ['o','toc'],
+    ['d','dark'],  ['c','config'], ['e','export'], ['s','stats'], ['i','info'],
+    ['t','timer'], ['p','pause'], ['w','typewriter'], ['m','menu'], ['q','close'],
+  ];
   let _typewriter     = false;
   let _wc = 0;
 
@@ -383,20 +389,36 @@ const Editor = (() => {
   // ── Command mode (ESC) ───────────────────────────────────────────────────
 
   function enterCmdMode() {
-    _cmdMode = true;
+    _cmdMode   = true;
+    _cmdNavIdx = -1;
     document.getElementById('ed-bar').classList.add('cmd-mode');
     document.getElementById('ed-menu-btn').classList.add('active');
     updateStatusBar();
   }
 
   function exitCmdMode() {
-    _cmdMode = false;
+    _cmdMode   = false;
+    _cmdNavIdx = -1;
     document.getElementById('ed-bar').classList.remove('cmd-mode');
     document.getElementById('ed-menu-btn').classList.remove('active');
     updateStatusBar();
   }
 
   function isCmdMode() { return _cmdMode; }
+
+  function cmdNavMove(delta) {
+    if (!_cmdMode) return;
+    const n = _CMD_LIST.length;
+    _cmdNavIdx = _cmdNavIdx === -1
+      ? (delta > 0 ? 0 : n - 1)
+      : (_cmdNavIdx + delta + n) % n;
+    updateStatusBar();
+  }
+
+  function getCmdNavKey() {
+    if (_cmdNavIdx < 0 || _cmdNavIdx >= _CMD_LIST.length) return null;
+    return _CMD_LIST[_cmdNavIdx][0];
+  }
 
   // ── Messages ──────────────────────────────────────────────────────────────
 
@@ -412,16 +434,12 @@ const Editor = (() => {
 
   function updateStatusBar() {
     if (_cmdMode) {
-      const cmds = [
-        ['f','find'], ['r','replace'], ['g','goto'], ['n','linenos'], ['o','toc'],
-        ['d','dark'],  ['c','config'], ['e','export'], ['s','stats'], ['i','info'],
-        ['t','timer'], ['p','pause'], ['w','typewriter'], ['m','menu'], ['q','close'],
-      ];
       const bar = document.getElementById('ed-bar-left');
       bar.innerHTML = '';
-      cmds.forEach(([key, label]) => {
+      _CMD_LIST.forEach(([key, label], i) => {
         const btn = document.createElement('button');
-        btn.className = 'cmd-btn';
+        btn.className = 'cmd-btn' + (i === _cmdNavIdx ? ' active' : '');
+        btn.dataset.cmd = key;
         btn.innerHTML = `<b>${key}</b>:${label}`;
         btn.addEventListener('mousedown', e => {
           e.preventDefault();
@@ -620,7 +638,7 @@ const Editor = (() => {
     saveCursorPos, applyLineNumbers,
     toggleTypewriter, typewriterScroll, toggleLineNumbers, gotoLine, gotoLineGo, gotoLineClose,
     applyLineMarker, applyInlineMarker, applyHeading,
-    enterCmdMode, exitCmdMode, isCmdMode,
+    enterCmdMode, exitCmdMode, isCmdMode, cmdNavMove, getCmdNavKey,
     searchOpen, searchClose, searchUpdate, searchNext, searchPrev, replaceOne, replaceAll,
     exportDoc
   };
