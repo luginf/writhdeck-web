@@ -303,6 +303,20 @@ input[type="color"] { width: 40px; height: 24px; padding: 1px; border: 1px solid
 #ed-bar-center { text-align: center; flex: 1; }
 #ed-bar-right { text-align: right; flex: 1; }
 
+/* Command mode — full-width button row */
+#ed-bar.cmd-mode #ed-bar-left   { flex: 1; display: flex; flex-wrap: wrap; gap: 2px; align-items: center; }
+#ed-bar.cmd-mode #ed-bar-center,
+#ed-bar.cmd-mode #ed-bar-right  { flex: 0; min-width: 0; }
+.cmd-btn {
+  background: none; border: none;
+  color: var(--fg-bar); font: inherit;
+  padding: 1px 5px; cursor: pointer; border-radius: 3px;
+  white-space: nowrap;
+}
+.cmd-btn:hover { background: var(--bg2); color: var(--fg); }
+.cmd-btn b { color: var(--fg); font-weight: bold; }
+.cmd-exit { opacity: 0.5; padding-left: 6px; }
+
 
 #ed-menu {
   position: fixed;
@@ -1986,12 +2000,14 @@ const Editor = (() => {
 
   function enterCmdMode() {
     _cmdMode = true;
+    document.getElementById('ed-bar').classList.add('cmd-mode');
     document.getElementById('ed-menu-btn').classList.add('active');
     updateStatusBar();
   }
 
   function exitCmdMode() {
     _cmdMode = false;
+    document.getElementById('ed-bar').classList.remove('cmd-mode');
     document.getElementById('ed-menu-btn').classList.remove('active');
     updateStatusBar();
   }
@@ -2012,9 +2028,29 @@ const Editor = (() => {
 
   function updateStatusBar() {
     if (_cmdMode) {
-      document.getElementById('ed-bar-left').textContent   = 'f:find  r:replace  g:goto  n:linenos  o:toc';
-      document.getElementById('ed-bar-center').textContent = 'd:dark  c:config  e:export  s:stats  i:info';
-      document.getElementById('ed-bar-right').textContent  = 't:timer  p:pause  w:typewriter  m:menu  q:close  ·ESC/Alt+C:exit·';
+      const cmds = [
+        ['f','find'], ['r','replace'], ['g','goto'], ['n','linenos'], ['o','toc'],
+        ['d','dark'],  ['c','config'], ['e','export'], ['s','stats'], ['i','info'],
+        ['t','timer'], ['p','pause'], ['w','typewriter'], ['m','menu'], ['q','close'],
+      ];
+      const bar = document.getElementById('ed-bar-left');
+      bar.innerHTML = '';
+      cmds.forEach(([key, label]) => {
+        const btn = document.createElement('button');
+        btn.className = 'cmd-btn';
+        btn.innerHTML = `<b>${key}</b>:${label}`;
+        btn.addEventListener('mousedown', e => {
+          e.preventDefault();
+          document.dispatchEvent(new CustomEvent('writhdeck-cmd', { detail: key }));
+        });
+        bar.appendChild(btn);
+      });
+      const exit = document.createElement('span');
+      exit.className = 'cmd-exit';
+      exit.textContent = '·ESC/Alt+C·';
+      bar.appendChild(exit);
+      document.getElementById('ed-bar-center').textContent = '';
+      document.getElementById('ed-bar-right').textContent  = '';
       return;
     }
     const s = State.settings;
@@ -3585,6 +3621,34 @@ async function init() {
 
   // Settings
   Settings.initEvents();
+
+  // Command mode clicks from status bar buttons
+  document.addEventListener('writhdeck-cmd', e => {
+    if (!Editor.isCmdMode()) return;
+    Editor.exitCmdMode();
+    switch (e.detail) {
+      case 'f': Editor.searchOpen(false);  break;
+      case 'r': Editor.searchOpen(true);   break;
+      case 'g': Editor.gotoLine();         break;
+      case 'n': Editor.toggleLineNumbers(); break;
+      case 'd':
+        State.settings.darkMode = !State.settings.darkMode;
+        saveSettings(); applyTheme();
+        if (State.doc) Editor.rehighlight();
+        break;
+      case 'o': TOC.toggle();              break;
+      case 'c': Settings.show();           break;
+      case 'e': Editor.exportDoc('txt');   break;
+      case 's': Stats.show();              break;
+      case 'i': showFileInfo();            break;
+      case 't': Timer.toggle();  Editor.updateStatusBar(); break;
+      case 'p': Timer.isActive() ? Timer.pause() : Timer.toggle();
+                Editor.updateStatusBar(); break;
+      case 'w': Editor.toggleTypewriter(); break;
+      case 'm': showMainMenu();            break;
+      case 'q': Editor.close();            break;
+    }
+  });
 
   // Keyboard — capture phase so we intercept before browser default handlers
   document.addEventListener('keydown', onKeydown, true);

@@ -384,12 +384,14 @@ const Editor = (() => {
 
   function enterCmdMode() {
     _cmdMode = true;
+    document.getElementById('ed-bar').classList.add('cmd-mode');
     document.getElementById('ed-menu-btn').classList.add('active');
     updateStatusBar();
   }
 
   function exitCmdMode() {
     _cmdMode = false;
+    document.getElementById('ed-bar').classList.remove('cmd-mode');
     document.getElementById('ed-menu-btn').classList.remove('active');
     updateStatusBar();
   }
@@ -410,9 +412,29 @@ const Editor = (() => {
 
   function updateStatusBar() {
     if (_cmdMode) {
-      document.getElementById('ed-bar-left').textContent   = 'f:find  r:replace  g:goto  n:linenos  o:toc';
-      document.getElementById('ed-bar-center').textContent = 'd:dark  c:config  e:export  s:stats  i:info';
-      document.getElementById('ed-bar-right').textContent  = 't:timer  p:pause  w:typewriter  m:menu  q:close  ·ESC/Alt+C:exit·';
+      const cmds = [
+        ['f','find'], ['r','replace'], ['g','goto'], ['n','linenos'], ['o','toc'],
+        ['d','dark'],  ['c','config'], ['e','export'], ['s','stats'], ['i','info'],
+        ['t','timer'], ['p','pause'], ['w','typewriter'], ['m','menu'], ['q','close'],
+      ];
+      const bar = document.getElementById('ed-bar-left');
+      bar.innerHTML = '';
+      cmds.forEach(([key, label]) => {
+        const btn = document.createElement('button');
+        btn.className = 'cmd-btn';
+        btn.innerHTML = `<b>${key}</b>:${label}`;
+        btn.addEventListener('mousedown', e => {
+          e.preventDefault();
+          document.dispatchEvent(new CustomEvent('writhdeck-cmd', { detail: key }));
+        });
+        bar.appendChild(btn);
+      });
+      const exit = document.createElement('span');
+      exit.className = 'cmd-exit';
+      exit.textContent = '·ESC/Alt+C·';
+      bar.appendChild(exit);
+      document.getElementById('ed-bar-center').textContent = '';
+      document.getElementById('ed-bar-right').textContent  = '';
       return;
     }
     const s = State.settings;

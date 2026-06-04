@@ -566,6 +566,34 @@ async function init() {
   // Settings
   Settings.initEvents();
 
+  // Command mode clicks from status bar buttons
+  document.addEventListener('writhdeck-cmd', e => {
+    if (!Editor.isCmdMode()) return;
+    Editor.exitCmdMode();
+    switch (e.detail) {
+      case 'f': Editor.searchOpen(false);  break;
+      case 'r': Editor.searchOpen(true);   break;
+      case 'g': Editor.gotoLine();         break;
+      case 'n': Editor.toggleLineNumbers(); break;
+      case 'd':
+        State.settings.darkMode = !State.settings.darkMode;
+        saveSettings(); applyTheme();
+        if (State.doc) Editor.rehighlight();
+        break;
+      case 'o': TOC.toggle();              break;
+      case 'c': Settings.show();           break;
+      case 'e': Editor.exportDoc('txt');   break;
+      case 's': Stats.show();              break;
+      case 'i': showFileInfo();            break;
+      case 't': Timer.toggle();  Editor.updateStatusBar(); break;
+      case 'p': Timer.isActive() ? Timer.pause() : Timer.toggle();
+                Editor.updateStatusBar(); break;
+      case 'w': Editor.toggleTypewriter(); break;
+      case 'm': showMainMenu();            break;
+      case 'q': Editor.close();            break;
+    }
+  });
+
   // Keyboard — capture phase so we intercept before browser default handlers
   document.addEventListener('keydown', onKeydown, true);
 

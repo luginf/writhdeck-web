@@ -296,6 +296,20 @@ input[type="color"] { width: 40px; height: 24px; padding: 1px; border: 1px solid
 #ed-bar-center { text-align: center; flex: 1; }
 #ed-bar-right { text-align: right; flex: 1; }
 
+/* Command mode — full-width button row */
+#ed-bar.cmd-mode #ed-bar-left   { flex: 1; display: flex; flex-wrap: wrap; gap: 2px; align-items: center; }
+#ed-bar.cmd-mode #ed-bar-center,
+#ed-bar.cmd-mode #ed-bar-right  { flex: 0; min-width: 0; }
+.cmd-btn {
+  background: none; border: none;
+  color: var(--fg-bar); font: inherit;
+  padding: 1px 5px; cursor: pointer; border-radius: 3px;
+  white-space: nowrap;
+}
+.cmd-btn:hover { background: var(--bg2); color: var(--fg); }
+.cmd-btn b { color: var(--fg); font-weight: bold; }
+.cmd-exit { opacity: 0.5; padding-left: 6px; }
+
 
 #ed-menu {
   position: fixed;
