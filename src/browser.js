@@ -135,7 +135,8 @@ const Browser = (() => {
       background:var(--bg-bar);border:1px solid var(--fg-bar);z-index:200;min-width:140px;`;
     const items = [
       ['Open',          () => Editor.open(doc)],
-      ['Info',          () => document.dispatchEvent(new CustomEvent('writhdeck-show-info', { detail: doc }))],
+      ['Info',          () => document.dispatchEvent(new CustomEvent('writhdeck-show-info',    { detail: doc }))],
+      ['Analyse',       () => document.dispatchEvent(new CustomEvent('writhdeck-show-analyse', { detail: doc }))],
       ['Rename',        () => renameDoc(doc)],
       ['Export as .txt',() => exportDocFrom(doc, 'txt')],
       ['Export as .md', () => exportDocFrom(doc, 'md')],

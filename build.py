@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Assembles src/ modules into a single writhdeck.html file."""
 import sys, os, json
+from datetime import date
 
 BASE    = os.path.join(os.path.dirname(__file__), 'src')
 ROOT    = os.path.dirname(__file__)
@@ -34,7 +35,8 @@ script   = '\n\n'.join(read(js) for js in JS_ORDER)
 readme   = json.dumps(read_root('README.md'))
 
 result = (template
-    .replace('{{STYLE}}',  style)
-    .replace('{{SCRIPT}}', script)
-    .replace('{{README}}', readme))
+    .replace('{{STYLE}}',       style)
+    .replace('{{SCRIPT}}',      script)
+    .replace('{{README}}',      readme)
+    .replace('{{BUILD_DATE}}',  date.today().isoformat()))
 sys.stdout.write(result)

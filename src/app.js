@@ -68,6 +68,126 @@ async function showFileInfo(docArg) {
   document.getElementById('info-dlg').showModal();
 }
 
+// ── Structure analyse dialog ──────────────────────────────────────────────
+
+async function showAnalyse(docArg) {
+  const doc = docArg || State.doc;
+  if (!doc) return;
+
+  let content = doc.content;
+  if (content == null) {
+    if (doc.fileHandle) {
+      try {
+        const file = await doc.fileHandle.getFile();
+        content = await file.text();
+      } catch(_) { content = ''; }
+    } else if (doc.id && typeof doc.id === 'number') {
+      const full = await DB.getDoc(doc.id);
+      content = full ? full.content : '';
+    } else {
+      content = '';
+    }
+  }
+
+  const s = State.settings;
+
+  function parseHeading(line) {
+    if (s.headingMarker && line.startsWith(s.headingMarker)) {
+      let n = 1;
+      while (n < 3 && line.startsWith(s.headingMarker.repeat(n + 1))) n++;
+      const mEsc = escRx(s.headingMarker);
+      const title = line
+        .replace(new RegExp('^' + mEsc + '+\\s*'), '')
+        .replace(new RegExp('\\s*' + mEsc + '+\\s*$'), '')
+        .trim();
+      return { level: n, title: title || line.trim() };
+    }
+    if (s.markdownHeadings) {
+      const m = line.match(/^(#{1,6})\s+(.*)/);
+      if (m) return { level: m[1].length, title: m[2].trim() };
+    }
+    return null;
+  }
+
+  const sections = [];
+  let curTitle = null, curLevel = 0, curWords = 0;
+
+  content.split('\n').forEach(line => {
+    const h = parseHeading(line);
+    if (h) {
+      sections.push({ title: curTitle, level: curLevel, words: curWords });
+      curTitle = h.title; curLevel = h.level; curWords = 0;
+    } else {
+      curWords += (line.match(/\S+/g) || []).length;
+    }
+  });
+  sections.push({ title: curTitle, level: curLevel, words: curWords });
+
+  const total = sections.reduce((acc, sec) => acc + sec.words, 0);
+
+  document.getElementById('analyse-title').textContent = `Structure — ${doc.name}`;
+  const body = document.getElementById('analyse-body');
+  body.innerHTML = '';
+
+  if (total === 0) {
+    const empty = document.createElement('div');
+    empty.style.cssText = 'padding:12px 0;color:var(--fg-bar)';
+    empty.textContent = 'No content to analyse.';
+    body.appendChild(empty);
+    document.getElementById('analyse-dlg').showModal();
+    return;
+  }
+
+  const maxBar = 240; // px — max bar width at 100%
+  sections.forEach(sec => {
+    if (sec.words === 0 && sec.title === null) return;
+    const pct = total > 0 ? Math.round(sec.words / total * 100) : 0;
+    const barW = Math.max(2, Math.round(pct / 100 * maxBar));
+    const indent = sec.level > 1 ? (sec.level - 1) * 14 : 0;
+    const label = sec.title || '(début)';
+
+    const row = document.createElement('div');
+    row.className = 'analyse-row';
+    row.style.paddingLeft = indent + 'px';
+
+    const titleDiv = document.createElement('div');
+    titleDiv.className = 'analyse-title';
+    if (sec.level > 0) {
+      const lvl = document.createElement('span');
+      lvl.className = 'analyse-level';
+      lvl.textContent = 'H' + sec.level;
+      titleDiv.appendChild(lvl);
+    }
+    const txt = document.createElement('span');
+    txt.className = 'analyse-title-text';
+    txt.textContent = label;
+    titleDiv.appendChild(txt);
+    row.appendChild(titleDiv);
+
+    const barWrap = document.createElement('div');
+    barWrap.className = 'analyse-bar-wrap';
+    const bar = document.createElement('div');
+    bar.className = 'analyse-bar';
+    bar.style.width = barW + 'px';
+    const stats = document.createElement('span');
+    stats.className = 'analyse-stats';
+    stats.textContent = sec.words.toLocaleString() + 'w · ' + pct + '%';
+    barWrap.appendChild(bar);
+    barWrap.appendChild(stats);
+    row.appendChild(barWrap);
+
+    body.appendChild(row);
+  });
+
+  const sectionCount = sections.filter(sec => sec.title !== null).length;
+  const footer = document.createElement('div');
+  footer.className = 'analyse-footer';
+  footer.textContent = `Total : ${total.toLocaleString()} mots · ${sectionCount} section${sectionCount !== 1 ? 's' : ''}`;
+  body.appendChild(footer);
+
+  document.getElementById('analyse-dlg').showModal();
+}
+
 // ── Fullscreen ────────────────────────────────────────────────────────────
 
 function toggleFullscreen() {
@@ -585,9 +705,17 @@ async function init() {
   });
 
   // Dialog close buttons
-  document.getElementById('info-close').addEventListener('click',      () => document.getElementById('info-dlg').close());
-  document.getElementById('stats-close').addEventListener('click',     () => document.getElementById('stats-dlg').close());
+  document.getElementById('info-close').addEventListener('click',     () => document.getElementById('info-dlg').close());
+  document.getElementById('analyse-close').addEventListener('click',  () => document.getElementById('analyse-dlg').close());
+  document.getElementById('stats-close').addEventListener('click',    () => document.getElementById('stats-dlg').close());
   document.getElementById('timer-alert-ok').addEventListener('click',  () => document.getElementById('timer-alert-dlg').close());
+  document.getElementById('about-close').addEventListener('click',    () => document.getElementById('about-dlg').close());
+  document.getElementById('about-ok').addEventListener('click',       () => document.getElementById('about-dlg').close());
+
+  // About button and logo in help menu
+  const openAbout = () => { helpMenu.hidden = true; document.getElementById('about-dlg').showModal(); };
+  document.getElementById('br-help-about').addEventListener('click', openAbout);
+  document.getElementById('br-help-logo').addEventListener('click', openAbout);
 
   // Misc tab import button (shares triggerImport)
   document.getElementById('misc-import-btn').addEventListener('click', triggerImport);
@@ -595,8 +723,9 @@ async function init() {
   // Settings
   Settings.initEvents();
 
-  // File info from browser context menu
-  document.addEventListener('writhdeck-show-info', e => showFileInfo(e.detail));
+  // File info / analyse from browser context menu
+  document.addEventListener('writhdeck-show-info',    e => showFileInfo(e.detail));
+  document.addEventListener('writhdeck-show-analyse', e => showAnalyse(e.detail));
 
   // Command mode clicks from status bar buttons
   document.addEventListener('writhdeck-cmd', e => {

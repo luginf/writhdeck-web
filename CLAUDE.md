@@ -46,6 +46,10 @@ Two object stores:
 
 Settings are persisted as an INI text string (`meta['iniText']`) via `saveSettings()`. `loadState()` reads and parses this on startup. The INI format is compatible with the Tcl/Tk desktop version.
 
+**Reset to defaults**: the Settings dialog footer has a "Reset to defaults" button that clears `meta['iniText']` from IndexedDB and reloads — equivalent to deleting `writhdeck.ini`.
+
+**INI parser note** (`ini.js`): `stripComment()` strips leading whitespace only (not trailing), so marker values with intentional trailing spaces (e.g. `comment_marker = % `) round-trip correctly. Default `commentMarker` is `'% '` (percent + space).
+
 ### Theming
 
 `applyTheme()` in `app.js` reads `State.settings.{scheme, darkMode}`, gets the scheme object via `getScheme()`, and applies the 8 dark or 8 light colors as CSS custom properties on `:root` (`--bg`, `--fg`, `--bg-bar`, `--fg-bar`, `--bg-sel`, `--heading`, `--comment`, `--markup`, `--bg2`). Font/margin settings are also set as properties.
@@ -189,6 +193,8 @@ Right-clicking a document row in `browser.js` shows a menu via `showContextMenu(
 ### Search
 
 `Editor.searchOpen(withReplace)` shows `#search-bar`. `searchUpdate()` finds all matches and calls `rehighlight()` to show `hl-search` spans in the overlay. `selectMatch()` sets the textarea's selection and scrolls (without stealing focus from the search input — `input.focus()` deliberately omitted). Closing the search bar calls `rehighlight()` to remove the highlights.
+
+**Toggle**: calling `searchOpen(false)` while the bar is already open in find mode (replace row hidden) closes it — so `Ctrl+F` acts as a toggle. On reopen, the previous search term is restored in the input and pre-selected (`input.select()`), so typing immediately replaces it.
 
 ### Go to line
 
