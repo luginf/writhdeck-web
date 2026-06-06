@@ -33,7 +33,11 @@ const INI_TO_SETTINGS = {
   status_right:         ['statusRight',      'str'],
   cursor_restore:             ['cursorRestore',             'bool'],
   line_numbers:               ['lineNumbers',               'bool'],
+  block_cursor:               ['blockCursor',               'bool'],
+  blink_cursor:               ['blinkCursor',               'bool'],
   intercept_browser_shortcuts:['interceptBrowserShortcuts', 'bool'],
+  intercept_context_menu:     ['interceptContextMenu',      'bool'],
+  open_last_doc:              ['openLastDoc',               'bool'],
 };
 
 const SETTINGS_TO_INI = Object.fromEntries(
@@ -87,7 +91,7 @@ function parseIni(text) {
   let section    = '';
   let curScheme  = '';
   let curProfile = '';
-  const TOPLEVEL = new Set(['editor', 'behaviour', 'keys', 'timer', 'misc', 'tui_colors', 'display']);
+  const TOPLEVEL = new Set(['editor', 'behaviour', 'keys', 'timer', 'misc', 'tui_colors', 'display', 'web']);
 
   for (const rawLine of text.split('\n')) {
     const line = rawLine.trim();
@@ -172,8 +176,16 @@ function writeIni(s, allSchemes) {
   out += `hemingway_mode  = ${b(s.hemingwayMode)}` + nl;
   out += `cursor_restore               = ${b(s.cursorRestore !== false)}` + nl;
   out += `line_numbers                 = ${b(s.lineNumbers)}` + nl;
-  out += `intercept_browser_shortcuts  = ${b(s.interceptBrowserShortcuts)}` + nl;
+  out += `block_cursor                 = ${b(s.blockCursor)}` + nl;
+  out += `blink_cursor                 = ${b(s.blinkCursor)}` + nl;
   out += `dark_mode       = ${b(s.darkMode)}` + nl;
+  out += nl;
+
+  out += '= web =' + nl + '[web]' + nl;
+  out += `% Options specific to the web version — ignored by the desktop version` + nl;
+  out += `open_last_doc                = ${b(s.openLastDoc)}` + nl;
+  out += `intercept_browser_shortcuts  = ${b(s.interceptBrowserShortcuts)}` + nl;
+  out += `intercept_context_menu       = ${b(s.interceptContextMenu !== false)}` + nl;
   out += nl;
 
   out += '= timer =' + nl;

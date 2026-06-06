@@ -43,6 +43,8 @@ const State = {
     statusCenter: '',
     statusRight: 'goal clock timer',
     lineNumbers: false,
+    blockCursor: false,
+    blinkCursor: false,
     interceptBrowserShortcuts: true,
     interceptContextMenu: true
   },
@@ -181,11 +183,11 @@ function isFavorite(id) { return State.favorites.includes(id); }
 
 // ── Daily stats — high-water mark ─────────────────────────────────────────
 
-function updateDaily(id, wordCount) {
+function updateDaily(id, added) {
   const today = new Date().toISOString().slice(0, 10);
   if (!State.daily[id]) State.daily[id] = {};
   const prev = State.daily[id][today] || 0;
-  if (wordCount > prev) { State.daily[id][today] = wordCount; saveDaily(); }
+  if (added > prev) { State.daily[id][today] = added; saveDaily(); }
 }
 
 function todayWords(id) {

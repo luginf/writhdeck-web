@@ -68,7 +68,9 @@ input[type="color"] { width: 40px; height: 24px; padding: 1px; border: 1px solid
 #br-title { font-size: 1.1em; font-weight: bold; color: var(--fg); }
 #br-header-btns { display: flex; gap: 4px; }
 #br-new-btn, #br-import-btn { font-size: 1.1em; padding: 0 8px; }
-#br-help-btn { font-size: 0.85em; padding: 0 7px; font-weight: bold; }
+#br-help-details { display: inline-flex; align-items: center; }
+#br-help-btn { font-size: 0.85em; padding: 0 7px; font-weight: bold; list-style: none; cursor: pointer; }
+#br-help-btn::-webkit-details-marker { display: none; }
 
 #br-help-menu {
   position: fixed;
@@ -81,7 +83,7 @@ input[type="color"] { width: 40px; height: 24px; padding: 1px; border: 1px solid
   z-index: 100;
   min-width: 160px;
 }
-#br-help-menu[hidden] { display: none; }
+#br-help-details:not([open]) #br-help-menu { display: none; }
 #br-help-menu button,
 #br-help-menu a {
   display: block; text-align: left; padding: 5px 16px; border: none;
@@ -259,6 +261,12 @@ input[type="color"] { width: 40px; height: 24px; padding: 1px; border: 1px solid
   z-index: 1;
 }
 #ed-input::selection { background: var(--bg-sel); color: var(--fg); }
+.block-cursor #ed-input { caret-color: transparent; }
+@keyframes hl-cursor-blink { 0%,49%{opacity:1} 50%,100%{opacity:0} }
+@keyframes caret-show { to { caret-color: var(--fg); } }
+.hl-cursor { background: var(--fg); color: var(--bg); animation: hl-cursor-blink 1s step-end infinite; }
+#editor.no-blink .hl-cursor { animation: none; opacity: 1; }
+#editor.no-blink:not(.block-cursor) #ed-input { animation: caret-show 1ms forwards; }
 
 /* highlight spans */
 .hl-heading  { color: var(--heading); }
@@ -499,6 +507,19 @@ dialog::backdrop { background: rgba(0,0,0,0.5); }
 .analyse-bar { height: 5px; min-width: 2px; border-radius: 3px; background: var(--heading); flex-shrink: 0; }
 .analyse-stats { color: var(--fg-bar); font-size: 0.82em; white-space: nowrap; }
 .analyse-footer { padding: 8px 0 4px; color: var(--fg-bar); font-size: 0.82em; }
+#analyse-words-btn { font-size: 0.75em; padding: 1px 6px; margin-right: 4px; }
+
+/* Word occurrences */
+#words-dlg { width: 340px; }
+#words-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 8px 12px; background: var(--bg-bar);
+}
+#words-body { padding: 6px 12px; font-size: 0.85em; max-height: 65vh; overflow-y: auto; }
+.words-table { width: 100%; border-collapse: collapse; }
+.words-table th, .words-table td { padding: 3px 8px; text-align: left; }
+.words-table th { color: var(--fg-bar); border-bottom: 1px solid var(--bg-bar); position: sticky; top: 0; background: var(--bg); }
+.words-table td:last-child { text-align: right; color: var(--fg-bar); }
 
 /* Stats */
 #stats-dlg { width: 400px; }

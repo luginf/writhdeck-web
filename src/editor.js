@@ -11,11 +11,13 @@ const Editor = (() => {
   let _cmdNavIdx      = -1;
   const _CMD_LIST = [
     ['f','find'], ['r','replace'], ['g','goto'], ['n','linenos'], ['o','toc'],
-    ['d','dark'],  ['c','config'], ['e','export'], ['s','stats'], ['i','info'],
-    ['t','timer'], ['p','pause'], ['w','typewriter'], ['m','menu'], ['q','close'],
+    ['d','dark'],  ['c','config'], ['e','export'], ['s','stats'], ['a','analyse'],
+    ['i','info'],  ['t','timer'], ['p','pause'], ['w','typewriter'], ['m','menu'], ['q','close'],
   ];
-  let _typewriter     = false;
-  let _wc = 0;
+  let _typewriter       = false;
+  let _wc               = 0;
+  let _sessionBaseline  = -1;  // total words in doc minus today's prior additions (set on open)
+  let _sessionMaxToday  = 0;   // high-water mark of words added today this session
 
   // ── Open / close ──────────────────────────────────────────────────────────
 
@@ -62,6 +64,13 @@ const Editor = (() => {
     input.focus();
     _wc = wordCount(input.value);
 
+    // Session baseline: words that existed before today's contribution
+    if (!doc.isIni) {
+      const priorToday = doc.id ? todayWords(doc.id) : 0;
+      _sessionBaseline = _wc - priorToday;
+      _sessionMaxToday = priorToday;
+    }
+
     startAutosave();
     startClock();
     if (!doc.virtual) pushRecent(doc.id);
@@ -77,7 +86,9 @@ const Editor = (() => {
     stopAutosave();
     stopClock();
     TOC.hide();
-    _cmdMode    = false;
+    _cmdMode          = false;
+    _sessionBaseline  = -1;
+    _sessionMaxToday  = 0;
     State.doc   = null;
     State.dirty = false;
     document.title = 'Writhdeck';
@@ -145,9 +156,13 @@ const Editor = (() => {
     const idx = State.docs.findIndex(d => d.id === State.doc.id);
     if (idx >= 0) State.docs[idx] = State.doc;
 
-    // Update daily stats
+    // Update daily stats (track words added today, not total)
     _wc = wordCount(State.doc.content);
-    updateDaily(State.doc.id, _wc);
+    if (_sessionBaseline >= 0) {
+      const added = Math.max(0, _wc - _sessionBaseline);
+      if (added > _sessionMaxToday) _sessionMaxToday = added;
+      updateDaily(State.doc.id, _sessionMaxToday);
+    }
 
     updateStatusBar();
   }
@@ -190,7 +205,8 @@ const Editor = (() => {
         while (paraEnd < ls.length - 1 && !isBoundary(paraEnd + 1)) paraEnd++;
       }
     }
-    pre().innerHTML = highlight(ta().value, State.settings, searchVisible ? _searchTerm : '', paraStart, paraEnd);
+    const cursorPos = State.settings.blockCursor ? ta().selectionStart : undefined;
+    pre().innerHTML = highlight(ta().value, State.settings, searchVisible ? _searchTerm : '', paraStart, paraEnd, cursorPos);
     syncGutter();
   }
 
@@ -319,7 +335,9 @@ const Editor = (() => {
     const allMarked = lines.every(l => l.startsWith(marker));
     const newLines = allMarked ? lines.map(l => l.slice(marker.length)) : lines.map(l => marker + l);
     const newBlock = newLines.join('\n');
-    input.value = text.slice(0, blockStart) + newBlock + text.slice(blockEnd);
+    input.focus();
+    input.setSelectionRange(blockStart, blockEnd);
+    document.execCommand('insertText', false, newBlock);
     input.setSelectionRange(blockStart, blockStart + newBlock.length);
     onInput();
   }
@@ -329,19 +347,23 @@ const Editor = (() => {
     const input = ta();
     const s = input.selectionStart, e = input.selectionEnd;
     const text = input.value;
+    input.focus();
     if (s === e) {
-      input.value = text.slice(0, s) + marker + marker + text.slice(s);
+      input.setSelectionRange(s, s);
+      document.execCommand('insertText', false, marker + marker);
       input.setSelectionRange(s + marker.length, s + marker.length);
     } else {
       const sel = text.slice(s, e);
       const isWrapped = sel.startsWith(marker) && sel.endsWith(marker) && sel.length > marker.length * 2;
       if (isWrapped) {
         const inner = sel.slice(marker.length, -marker.length);
-        input.value = text.slice(0, s) + inner + text.slice(e);
+        input.setSelectionRange(s, e);
+        document.execCommand('insertText', false, inner);
         input.setSelectionRange(s, s + inner.length);
       } else {
         const wrapped = marker + sel + marker;
-        input.value = text.slice(0, s) + wrapped + text.slice(e);
+        input.setSelectionRange(s, e);
+        document.execCommand('insertText', false, wrapped);
         input.setSelectionRange(s, s + wrapped.length);
       }
     }
@@ -381,7 +403,9 @@ const Editor = (() => {
       return content ? `${prefix} ${content} ${prefix}` : `${prefix}  ${prefix}`;
     });
     const newBlock = newLines.join('\n');
-    input.value = text.slice(0, blockStart) + newBlock + text.slice(blockEnd);
+    input.focus();
+    input.setSelectionRange(blockStart, blockEnd);
+    document.execCommand('insertText', false, newBlock);
     input.setSelectionRange(blockStart, blockStart + newBlock.length);
     onInput();
   }
@@ -458,7 +482,11 @@ const Editor = (() => {
     const s = State.settings;
     const doc = State.doc;
     const wc = doc ? wordCount(ta().value) : 0;
-    const today = doc ? todayWords(doc.id) : 0;
+    if (doc && _sessionBaseline >= 0) {
+      const cur = Math.max(0, wc - _sessionBaseline);
+      if (cur > _sessionMaxToday) _sessionMaxToday = cur;
+    }
+    const today = doc ? (_sessionBaseline >= 0 ? _sessionMaxToday : todayWords(doc.id)) : 0;
     const clk = new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
 
     function buildZone(spec) {

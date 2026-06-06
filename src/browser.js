@@ -128,6 +128,32 @@ const Browser = (() => {
 
   let _ctxMenu = null;
 
+  function showIniContextMenu(e, openIni) {
+    hideContextMenu();
+    const menu = document.createElement('div');
+    menu.style.cssText = `position:fixed;left:${e.clientX}px;top:${e.clientY}px;
+      background:var(--bg-bar);border:1px solid var(--fg-bar);z-index:200;min-width:160px;`;
+    const items = [
+      ['Open', openIni],
+      ['Export writhdeck.ini', () => Settings.exportIni()],
+      ['Reset to defaults', async () => {
+        if (!confirm('Reset all settings to defaults?')) return;
+        await DB.setMeta('iniText', null);
+        location.reload();
+      }]
+    ];
+    items.forEach(([label, fn]) => {
+      const btn = document.createElement('button');
+      btn.textContent = label;
+      btn.style.cssText = 'display:block;width:100%;text-align:left;padding:6px 14px;border:none;background:none;';
+      btn.style.color = label === 'Reset to defaults' ? 'var(--heading)' : 'var(--fg)';
+      btn.addEventListener('click', () => { hideContextMenu(); fn(); });
+      menu.appendChild(btn);
+    });
+    document.body.appendChild(menu);
+    _ctxMenu = menu;
+  }
+
   function showContextMenu(doc, e) {
     hideContextMenu();
     const menu = document.createElement('div');
@@ -271,15 +297,12 @@ const Browser = (() => {
 
     row.appendChild(ico);
     row.appendChild(name);
-    row.addEventListener('click', () => {
-      Editor.open({
-        id: '__ini__',
-        name: 'writhdeck.ini',
-        content: State.iniText || '',
-        isIni: true,
-        virtual: true
-      });
+    const openIni = () => Editor.open({
+      id: '__ini__', name: 'writhdeck.ini',
+      content: State.iniText || '', isIni: true, virtual: true
     });
+    row.addEventListener('click', openIni);
+    row.addEventListener('contextmenu', e => { e.preventDefault(); showIniContextMenu(e, openIni); });
     container.appendChild(row);
   }
 

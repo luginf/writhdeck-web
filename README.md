@@ -4,7 +4,7 @@ A distraction-free writing app that runs as a single self-contained HTML file �
 
 ## Features
 
-- **Single-file**: the entire app is one `writhdeck.html` (~146 KB). Copy it anywhere, it just works.
+- **Single-file**: the entire app is one `writhdeck.html` (~180 KB). Copy it anywhere, it just works.
 - **Document browser**: create, rename, delete, and favourite documents stored in IndexedDB. Document names are unique — duplicates are auto-suggested as `"Untitled (2)"` etc.
 - **Disk file support** (Chrome/Edge/Brave): open individual files or watch a folder — edits go straight back to disk via the File System Access API.
 - **Syntax highlighting overlay**: headings, comments, and inline markers (bold, italic, underline, strikethrough) are coloured in real time without leaving the textarea.
@@ -12,25 +12,30 @@ A distraction-free writing app that runs as a single self-contained HTML file �
 - **8 built-in colour schemes** (default, solarized, gruvbox, everforest, nord, + 3 more), dark and light variants, and full custom-scheme support.
 - **Writing timer**: countdown or stopwatch, with optional sound and alert at the end.
 - **Table of contents**: auto-generated from heading lines, shown in a side panel.
-- **Daily word-count stats** with optional daily goal.
+- **Daily writing stats**: tracks words *added* today (not total document size) with a high-water mark across sessions. Optional daily goal.
 - **Hemingway mode**: disables backspace/delete to keep you writing forward.
 - **Typewriter mode**: keeps the cursor vertically centred; dims text outside the current paragraph so only the active paragraph appears at full colour.
 - **Find & replace** with live match highlighting, goto line, line numbers.
+- **Structure analysis**: section-by-section word-count breakdown with progress bars. Accessible from the `≡` menu (`a`).
+- **Word occurrences**: frequency table of all words, sorted by count. Accessible from the Analyse dialog or the `≡` menu.
+- **Block cursor**: optional solid rectangle cursor, rendered in the highlight overlay. Supports blink on/off.
 - **Export** as `.txt` or `.md`.
-- **INI config**: load a `writhdeck.ini` file to share settings across installs.
+- **INI config**: `writhdeck.ini` is always visible in the browser. Right-click it to open, export, or reset to defaults. The format is compatible with the Tcl/Tk desktop version; web-specific options are in a dedicated `[web]` section.
 - **Status bar**: fully customisable left/centre/right slots with tokens — see [Status bar tokens](#status-bar-tokens).
-- **`≡` menu**: all commands accessible from a single dropdown — keyboard-navigable (↑↓ + Enter), with format options (H1–H3, bold, italic…), search, export, settings, and more. Opening the menu preserves any active text selection.
-- **Right-click context menu**: format, cut/copy/paste, and spell-check toggle (editor); Open / Info / Rename / Export / Delete (browser document list).
+- **`≡` menu**: all commands accessible from a single dropdown — keyboard-navigable (↑↓ + Enter, or press the hint letter directly), with format options (H1–H3, bold, italic…), search, export, settings, and more. Opening the menu preserves any active text selection.
+- **Right-click context menu**: format, cut/copy/paste, and spell-check toggle (editor); Open / Info / Rename / Export / Delete (browser document list); Open / Export / Reset (writhdeck.ini).
 - **Command mode** (`Esc` or `Alt+C`): interactive status bar showing all commands as clickable buttons. Navigate with `←`/`→`, confirm with `Enter`, or click with the mouse.
+- **About dialog**: accessible from the `?` menu in the browser — shows the app description and build date.
+- **Undo support**: bold, italic, heading, and comment formatting operations integrate with the browser's native undo stack (via `execCommand('insertText')`).
 
 ## Build
 
 ```sh
-make        # produces writhdeck.html (~146 KB)
+make        # produces writhdeck.html (~180 KB)
 make clean  # removes writhdeck.html
 ```
 
-`build.py` reads `src/template.html`, inlines `src/style.css` and all JS modules (in the order defined in `JS_ORDER`), and writes the result to stdout. Python 3, no dependencies.
+`build.py` reads `src/template.html`, inlines `src/style.css` and all JS modules (in the order defined in `JS_ORDER`), and writes the result to stdout. The build date is embedded as `{{BUILD_DATE}}` (ISO format). Python 3, no dependencies.
 
 ## Keyboard shortcuts
 
@@ -56,6 +61,7 @@ make clean  # removes writhdeck.html
 | `Ctrl+L` | Toggle line numbers |
 | `Alt+T` | Toggle timer |
 | `Alt+C` / `Esc` | Enter command mode |
+| `Alt+M` | Open `≡` menu |
 
 ### Command mode (`Alt+C` or `Esc`)
 
@@ -75,9 +81,9 @@ The status bar becomes an interactive row of command buttons. Works in fullscree
 | `g` | Go to line | `c` | Settings |
 | `n` | Line numbers | `e` | Export as .txt |
 | `w` | Typewriter mode | `s` | Statistics |
-| `t` | Timer | `i` | File info |
-| `p` | Timer pause | `m` | Main menu (≡) |
-| `q` | Close document | | |
+| `t` | Timer | `a` | Analyse structure |
+| `p` | Timer pause | `i` | File info |
+| `q` | Close document | `m` | Main menu (≡) |
 
 ### Browser (document list)
 
@@ -107,7 +113,7 @@ The three status bar zones (left / centre / right) are configured as space-separ
 | `para` | `18§` | Paragraph count (blank-line separated) |
 | `pages` | `7p` | Estimated pages at 250 w/page |
 | `percent` | `68%` | Progress toward word goal |
-| `today` | `342↑` | Words written today (high-water mark) |
+| `today` | `342↑` | Words *added* today (high-water mark across sessions) |
 | `goal` | `342/500` | Today's words / goal (hidden if no goal) |
 | `reading` | `9min` | Estimated reading time at 200 w/min |
 | `clock` | `14:32` | Current time |
@@ -117,25 +123,41 @@ The three status bar zones (left / centre / right) are configured as space-separ
 
 Default: Left `filename dirty words` · Center *(empty)* · Right `goal clock timer`
 
+## INI config
+
+`writhdeck.ini` uses the same format as the Tcl/Tk desktop version. Web-specific options live in a dedicated section so they are silently ignored by the desktop version:
+
+```ini
+[web]
+% Options specific to the web version — ignored by the desktop version
+open_last_doc               = no
+intercept_browser_shortcuts = yes
+intercept_context_menu      = yes
+```
+
+Options shared with the desktop version (`block_cursor`, `blink_cursor`, `line_numbers`, `dark_mode`, etc.) stay in `[behaviour]`.
+
+Right-click `writhdeck.ini` in the browser to export it or reset all settings to defaults (the file is recreated from defaults on next load).
+
 ## Project structure
 
 ```
 src/
-  template.html   HTML skeleton with {{STYLE}} / {{SCRIPT}} placeholders
+  template.html   HTML skeleton with {{STYLE}} / {{SCRIPT}} / {{BUILD_DATE}} placeholders
   style.css       All CSS (uses CSS custom properties only, no hardcoded colours)
   schemes.js      Built-in colour schemes + custom-scheme support
   db.js           IndexedDB wrapper (promise-based)
   state.js        App state, load/save helpers
-  ini.js          INI config parser/applier
-  highlight.js    Syntax highlighter + word count
+  ini.js          INI config parser/writer (compatible with desktop version)
+  highlight.js    Syntax highlighter + word count + block cursor injection
   timer.js        Writing timer
   toc.js          Table of contents
-  stats.js        Daily word-count stats
-  editor.js       Editor panel, textarea/overlay sync, find/replace
+  stats.js        Daily word-count stats dialog
+  editor.js       Editor panel, textarea/overlay sync, find/replace, formatting
   browser.js      Document browser panel, FSA integration
   settings.js     Settings dialog
-  app.js          Entry point, theme, keyboard router, menus
-build.py          Build script
+  app.js          Entry point, theme, keyboard router, menus, dialogs
+build.py          Build script (inlines CSS/JS, stamps build date)
 Makefile          Convenience wrapper around build.py
 ```
 
@@ -157,4 +179,3 @@ Add an entry to the `SCHEMES` object in `src/schemes.js`. Each scheme needs 9 da
 Copyright (C) 2026 by Luginfo — Zero-Clause BSD License
 
 Permission to use, copy, modify, and/or distribute this software for any purpose with or without fee is hereby granted. The software is provided "as is" without warranty of any kind.
-

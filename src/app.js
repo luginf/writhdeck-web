@@ -3,11 +3,12 @@
 
 const README_CONTENT = {{README}};
 
-let _edMenu      = null;
-let _openMenuFn  = null;
-let _menuNavLock = false;
-let _edCtxMenu   = null;
-let _helpMenu    = null;
+let _edMenu          = null;
+let _openMenuFn      = null;
+let _menuNavLock     = false;
+let _edCtxMenu       = null;
+let _helpDetails     = null;
+let _menuActionTime  = 0;
 
 function hideEditorCtxMenu() {
   if (_edCtxMenu) { _edCtxMenu.remove(); _edCtxMenu = null; }
@@ -66,6 +67,54 @@ async function showFileInfo(docArg) {
   });
 
   document.getElementById('info-dlg').showModal();
+}
+
+// ── Word occurrences dialog ───────────────────────────────────────────────
+
+async function showWordOcc(docArg) {
+  const doc = docArg || State.doc;
+  if (!doc) return;
+
+  let content = doc.content;
+  if (content == null) {
+    if (doc.fileHandle) {
+      try { const f = await doc.fileHandle.getFile(); content = await f.text(); }
+      catch(_) { content = ''; }
+    } else if (doc.id && typeof doc.id === 'number') {
+      const full = await DB.getDoc(doc.id);
+      content = full ? full.content : '';
+    } else { content = ''; }
+  }
+
+  const counts = {};
+  const words = content.toLowerCase().match(/[\wÀ-ɏ]+/g) || [];
+  words.forEach(w => { if (w.length >= 3) counts[w] = (counts[w] || 0) + 1; });
+
+  const sorted = Object.entries(counts)
+    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+
+  const body = document.getElementById('words-body');
+  body.innerHTML = '';
+
+  if (!sorted.length) {
+    const empty = document.createElement('p');
+    empty.style.cssText = 'color:var(--fg-bar);padding:12px 0';
+    empty.textContent = 'No words found.';
+    body.appendChild(empty);
+  } else {
+    const table = document.createElement('table');
+    table.className = 'words-table';
+    table.innerHTML = '<tr><th>Word</th><th>#</th></tr>';
+    sorted.forEach(([word, count]) => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td>${word}</td><td>${count}</td>`;
+      table.appendChild(tr);
+    });
+    body.appendChild(table);
+  }
+
+  document.getElementById('words-title').textContent = `Word occurrences — ${doc.name}`;
+  document.getElementById('words-dlg').showModal();
 }
 
 // ── Structure analyse dialog ──────────────────────────────────────────────
@@ -185,6 +234,10 @@ async function showAnalyse(docArg) {
   footer.textContent = `Total : ${total.toLocaleString()} mots · ${sectionCount} section${sectionCount !== 1 ? 's' : ''}`;
   body.appendChild(footer);
 
+  document.getElementById('analyse-words-btn').onclick = () => {
+    document.getElementById('analyse-dlg').close();
+    showWordOcc(doc);
+  };
   document.getElementById('analyse-dlg').showModal();
 }
 
@@ -221,6 +274,9 @@ function applyTheme() {
   r.setProperty('--line-spacing', (s.lineSpacing || 1.5));
   r.setProperty('--margin-x',     (s.marginX   || 80) + 'px');
   r.setProperty('--margin-y',     (s.marginY   || 40) + 'px');
+
+  document.getElementById('editor').classList.toggle('block-cursor', !!s.blockCursor);
+  document.getElementById('editor').classList.toggle('no-blink', s.blinkCursor === false);
 }
 
 // ── File import ────────────────────────────────────────────────────────────
@@ -256,22 +312,45 @@ function onKeydown(e) {
   const inBrowser = !document.getElementById('browser').hidden;
 
   Browser.hideContextMenu();
-  if (_helpMenu && !_helpMenu.hidden && lkey === 'escape') { _helpMenu.hidden = true; return; }
+  if (_helpDetails && _helpDetails.open && lkey === 'escape') { _helpDetails.open = false; return; }
 
-  // Menu arrow navigation — intercept at capture level regardless of focus.
-  if (_edMenu && !_edMenu.hidden && (key === 'ArrowDown' || key === 'ArrowUp')) {
-    e.preventDefault(); e.stopPropagation();
-    if (!_menuNavLock) {
-      _menuNavLock = true;
-      requestAnimationFrame(() => { _menuNavLock = false; });
-      const items = Array.from(_edMenu.querySelectorAll('button:not(:disabled)'));
-      const idx   = items.indexOf(document.activeElement);
-      const next  = key === 'ArrowDown'
-        ? items[(idx + 1) % items.length]
-        : items[(idx - 1 + items.length) % items.length];
-      if (next) next.focus();
+  // Menu keyboard handling — intercept at capture level regardless of focus.
+  if (_edMenu && !_edMenu.hidden) {
+    if (key === 'ArrowDown' || key === 'ArrowUp') {
+      e.preventDefault(); e.stopPropagation();
+      if (!_menuNavLock) {
+        _menuNavLock = true;
+        requestAnimationFrame(() => { _menuNavLock = false; });
+        const items = Array.from(_edMenu.querySelectorAll('button:not(:disabled)'));
+        const idx   = items.indexOf(document.activeElement);
+        const next  = key === 'ArrowDown'
+          ? items[(idx + 1) % items.length]
+          : items[(idx - 1 + items.length) % items.length];
+        if (next) next.focus();
+      }
+      return;
     }
-    return;
+    // Enter — activate focused button
+    if (key === 'Enter') {
+      const focused = document.activeElement;
+      if (focused && _edMenu.contains(focused)) {
+        e.preventDefault(); e.stopPropagation();
+        focused.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }));
+        return;
+      }
+    }
+    // Letter shortcut — activate button whose hint matches
+    if (!ctrl && !e.altKey && lkey.length === 1) {
+      const match = Array.from(_edMenu.querySelectorAll('button:not(:disabled)')).find(b => {
+        const hint = b.querySelector('.hint');
+        return hint && hint.textContent.trim() === lkey;
+      });
+      if (match) {
+        e.preventDefault(); e.stopPropagation();
+        match.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }));
+        return;
+      }
+    }
   }
 
   // Global shortcuts (work anywhere, no active input focused)
@@ -340,6 +419,7 @@ function onKeydown(e) {
         case 'c': Settings.show();           break;
         case 'e': Editor.exportDoc('txt'); break;
         case 's': Stats.show();              break;
+        case 'a': showAnalyse();             break;
         case 'i': showFileInfo();            break;
         case 't': Timer.toggle();  Editor.updateStatusBar(); break;
         case 'p': Timer.isActive() ? Timer.pause() : Timer.toggle();
@@ -360,6 +440,7 @@ function onKeydown(e) {
     if (ctrl && lkey === 'l')     { e.preventDefault(); e.stopPropagation(); Editor.toggleLineNumbers();  return; }
     if (e.altKey && lkey === 't') { e.preventDefault(); e.stopPropagation(); Timer.toggle(); Editor.updateStatusBar(); return; }
     if (e.altKey && lkey === 'c') { e.preventDefault(); e.stopPropagation(); Editor.enterCmdMode(); return; }
+    if (e.altKey && lkey === 'm') { e.preventDefault(); e.stopPropagation(); showMainMenu(); return; }
 
     if (lkey === 'escape') {
       e.preventDefault(); e.stopPropagation();
@@ -452,8 +533,8 @@ async function init() {
   ta.addEventListener('input',  () => Editor.onInput());
   ta.addEventListener('scroll', () => Editor.syncScroll());
   // Update line/col on cursor move (click or keyboard navigation)
-  ta.addEventListener('click',   () => Editor.updateStatusBar());
-  ta.addEventListener('keyup',   () => Editor.updateStatusBar());
+  ta.addEventListener('click',   () => { Editor.updateStatusBar(); if (State.settings.blockCursor) Editor.rehighlight(); });
+  ta.addEventListener('keyup',   () => { Editor.updateStatusBar(); if (State.settings.blockCursor) Editor.rehighlight(); });
 
   // Header buttons
   document.getElementById('br-new-btn').addEventListener('click',    () => Browser.newDoc());
@@ -462,19 +543,12 @@ async function init() {
   document.getElementById('br-opendisk-btn').addEventListener('click', () => Browser.openFromDisk());
   document.getElementById('ed-close-btn').addEventListener('click', () => Editor.close());
 
-  // Help menu (? button)
-  const helpBtn  = document.getElementById('br-help-btn');
-  const helpMenu = document.getElementById('br-help-menu');
-  _helpMenu = helpMenu;
-
-  helpBtn.addEventListener('mousedown', e => e.preventDefault());
-  helpBtn.addEventListener('click', e => {
-    e.stopPropagation();
-    helpMenu.hidden = !helpMenu.hidden;
-  });
+  // Help menu (? button) — native <details> toggle, no JS click handler needed
+  const helpDetails = document.getElementById('br-help-details');
+  _helpDetails = helpDetails;
 
   document.getElementById('br-help-readme').addEventListener('click', async () => {
-    helpMenu.hidden = true;
+    helpDetails.open = false;
     let doc = State.docs.find(d => d.name === 'README.md');
     if (!doc) {
       doc = { name: 'README.md', content: README_CONTENT, created: Date.now(), modified: Date.now() };
@@ -526,8 +600,16 @@ async function init() {
       case 'export-txt': Editor.exportDoc('txt');    break;
       case 'export-md':  Editor.exportDoc('md');     break;
       case 'stats':      Stats.show();               break;
+      case 'analyse':    showAnalyse();              break;
+      case 'word-occ':   showWordOcc();              break;
       case 'info':       showFileInfo();             break;
       case 'timer':      Timer.toggle(); Editor.updateStatusBar(); break;
+      case 'block-cursor':
+        State.settings.blockCursor = !State.settings.blockCursor;
+        saveSettings();
+        applyTheme();
+        if (State.doc) Editor.rehighlight();
+        break;
       case 'ctx-menu':
         State.settings.interceptContextMenu = !State.settings.interceptContextMenu;
         saveSettings();
@@ -556,9 +638,11 @@ async function init() {
       btn.innerHTML = marker ? `<span>${marker} ${label}</span>` : `<span>${label}</span>`;
       btn.disabled  = !marker;
     });
-    // Update ctx-menu toggle label
+    // Update toggle labels
     const ctxBtn = edMenu.querySelector('[data-cmd="ctx-menu"]');
     if (ctxBtn) ctxBtn.innerHTML = `Right-click menu <span class="hint">${s.interceptContextMenu ? 'on' : 'off'}</span>`;
+    const bcBtn = edMenu.querySelector('[data-cmd="block-cursor"]');
+    if (bcBtn) bcBtn.innerHTML = `Block cursor <span class="hint">${s.blockCursor ? 'on' : 'off'}</span>`;
     edMenu.hidden = false;
   }
   _openMenuFn = openMenu;
@@ -577,13 +661,24 @@ async function init() {
     setTimeout(() => { edMenu.hidden = false; }, 0);
   });
 
-  document.getElementById('ed-more-cmd').addEventListener('click', () => {
+  function menuGuard() {
+    const now = Date.now();
+    if (now - _menuActionTime < 150) return false;
+    _menuActionTime = now;
+    return true;
+  }
+
+  document.getElementById('ed-more-cmd').addEventListener('mousedown', e => {
+    if (!menuGuard()) return;
+    e.preventDefault();
     edMenu.hidden = true;
     Editor.enterCmdMode();
   });
 
   edMenu.querySelectorAll('[data-markup]').forEach(btn => {
-    btn.addEventListener('click', () => {
+    btn.addEventListener('mousedown', e => {
+      if (!menuGuard()) return;
+      e.preventDefault();
       edMenu.hidden = true;
       const s = State.settings;
       switch (btn.dataset.markup) {
@@ -600,10 +695,14 @@ async function init() {
   });
 
   edMenu.querySelectorAll('[data-cmd]').forEach(btn => {
-    btn.addEventListener('click', () => execCmd(btn.dataset.cmd));
+    btn.addEventListener('mousedown', e => {
+      if (!menuGuard()) return;
+      e.preventDefault();
+      execCmd(btn.dataset.cmd);
+    });
   });
 
-  document.addEventListener('click', () => { edMenu.hidden = true; helpMenu.hidden = true; hideEditorCtxMenu(); });
+  document.addEventListener('click', e => { edMenu.hidden = true; if (!helpDetails.contains(e.target)) helpDetails.open = false; hideEditorCtxMenu(); });
 
   // ── Editor right-click context menu ──────────────────────────────────────
 
@@ -707,13 +806,14 @@ async function init() {
   // Dialog close buttons
   document.getElementById('info-close').addEventListener('click',     () => document.getElementById('info-dlg').close());
   document.getElementById('analyse-close').addEventListener('click',  () => document.getElementById('analyse-dlg').close());
+  document.getElementById('words-close').addEventListener('click',    () => document.getElementById('words-dlg').close());
   document.getElementById('stats-close').addEventListener('click',    () => document.getElementById('stats-dlg').close());
   document.getElementById('timer-alert-ok').addEventListener('click',  () => document.getElementById('timer-alert-dlg').close());
   document.getElementById('about-close').addEventListener('click',    () => document.getElementById('about-dlg').close());
   document.getElementById('about-ok').addEventListener('click',       () => document.getElementById('about-dlg').close());
 
   // About button and logo in help menu
-  const openAbout = () => { helpMenu.hidden = true; document.getElementById('about-dlg').showModal(); };
+  const openAbout = () => { helpDetails.open = false; document.getElementById('about-dlg').showModal(); };
   document.getElementById('br-help-about').addEventListener('click', openAbout);
   document.getElementById('br-help-logo').addEventListener('click', openAbout);
 
@@ -745,6 +845,7 @@ async function init() {
       case 'c': Settings.show();           break;
       case 'e': Editor.exportDoc('txt');   break;
       case 's': Stats.show();              break;
+      case 'a': showAnalyse();             break;
       case 'i': showFileInfo();            break;
       case 't': Timer.toggle();  Editor.updateStatusBar(); break;
       case 'p': Timer.isActive() ? Timer.pause() : Timer.toggle();

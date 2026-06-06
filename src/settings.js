@@ -400,5 +400,5 @@ const Settings = (() => {
     // misc-import-btn wired in app.js (shares logic with br-import-btn)
   }
 
-  return { show, initEvents, switchTab };
+  return { show, initEvents, switchTab, exportIni };
 })();
