@@ -19,17 +19,56 @@ function injectCursorAt(html, col) {
   return done ? result : result + '<span class="hl-cursor"> </span>';
 }
 
+// Build inline-markup rules once per highlight() call (regex compilation is
+// loop-invariant — doing it inside the per-line loop cost ~70ms on a 90K-word
+// document). Exposed so the incremental single-line repaint in editor.js (see
+// `rehighlight()`'s fast path) can reuse the exact same rules.
+function _buildMarkupRules(s) {
+  const rules = [];
+  if (s.boldMarker)      rules.push(_markupRule(s.boldMarker));
+  if (s.italicMarker)    rules.push(_markupRule(s.italicMarker));
+  if (s.underlineMarker) rules.push(_markupRule(s.underlineMarker));
+  if (s.strikeMarker)    rules.push(_markupRule(s.strikeMarker));
+  return rules;
+}
+
+function _markupRule(marker) {
+  const escMarker = escapeHtml(marker);
+  const rx = new RegExp(escRx(escMarker) + '(.+?)' + escRx(escMarker), 'g');
+  return { rx, replacer: (_, inner) => `<span class="hl-markup">${escMarker}${inner}${escMarker}</span>` };
+}
+
+// Render a single line's inner HTML (heading/comment/dim/inline-markup), with
+// no cursor or search overlay — the part that's identical between the full
+// highlight() pass and the incremental single-line repaint fast path.
+function _renderLine(line, s, hm, cm, markupRules, dim) {
+  const esc = escapeHtml(line);
+  if (hm && line.startsWith(s.headingMarker)) {
+    return `<span class="hl-heading${dim ? ' hl-dim' : ''}">${esc}</span>`;
+  }
+  if (s.markdownHeadings && /^#{1,6}\s/.test(line)) {
+    return `<span class="hl-heading${dim ? ' hl-dim' : ''}">${esc}</span>`;
+  }
+  if (cm && line.startsWith(s.commentMarker)) {
+    return `<span class="hl-comment${dim ? ' hl-dim' : ''}">${esc}</span>`;
+  }
+  if (dim) {
+    return `<span class="hl-dim">${esc}</span>`;
+  }
+  let result = esc;
+  for (const rule of markupRules) {
+    rule.rx.lastIndex = 0;
+    result = result.replace(rule.rx, rule.replacer);
+  }
+  return result;
+}
+
 function highlight(text, s, searchTerm, paraStart, paraEnd, cursorPos) {
-  // Build regexes from current settings
   const hm = escRx(s.headingMarker);
   const cm = escRx(s.commentMarker);
-  const bm = escRx(s.boldMarker);
-  const im = escRx(s.italicMarker);
-  const um = escRx(s.underlineMarker);
-  const sm = escRx(s.strikeMarker);
-
   const hasPara = paraStart !== undefined && paraEnd !== undefined;
   const lines = text.split('\n');
+  const markupRules = _buildMarkupRules(s);
 
   // Compute cursor line/col from absolute offset
   let cursorLine = -1, cursorCol = -1;
@@ -44,37 +83,11 @@ function highlight(text, s, searchTerm, paraStart, paraEnd, cursorPos) {
 
   const out = lines.map((line, idx) => {
     const dim = hasPara && (idx < paraStart || idx > paraEnd);
-    const esc = escapeHtml(line);
-
-    let lineHtml;
-    // Heading line
-    if (hm && line.startsWith(s.headingMarker)) {
-      lineHtml = `<span class="hl-heading${dim ? ' hl-dim' : ''}">${esc}</span>`;
-    // Markdown headings
-    } else if (s.markdownHeadings && /^#{1,6}\s/.test(line)) {
-      lineHtml = `<span class="hl-heading${dim ? ' hl-dim' : ''}">${esc}</span>`;
-    // Comment line
-    } else if (cm && line.startsWith(s.commentMarker)) {
-      lineHtml = `<span class="hl-comment${dim ? ' hl-dim' : ''}">${esc}</span>`;
-    // Lines outside paragraph in typewriter mode: plain dim, no inline markup
-    } else if (dim) {
-      lineHtml = `<span class="hl-dim">${esc}</span>`;
-    } else {
-      // Inline markup (apply in order, non-greedy)
-      let result = esc;
-      if (bm) result = result.replace(new RegExp(escRx(escapeHtml(s.boldMarker)) + '(.+?)' + escRx(escapeHtml(s.boldMarker)), 'g'),
-        (_, inner) => `<span class="hl-markup">${escapeHtml(s.boldMarker)}${inner}${escapeHtml(s.boldMarker)}</span>`);
-      if (im) result = result.replace(new RegExp(escRx(escapeHtml(s.italicMarker)) + '(.+?)' + escRx(escapeHtml(s.italicMarker)), 'g'),
-        (_, inner) => `<span class="hl-markup">${escapeHtml(s.italicMarker)}${inner}${escapeHtml(s.italicMarker)}</span>`);
-      if (um) result = result.replace(new RegExp(escRx(escapeHtml(s.underlineMarker)) + '(.+?)' + escRx(escapeHtml(s.underlineMarker)), 'g'),
-        (_, inner) => `<span class="hl-markup">${escapeHtml(s.underlineMarker)}${inner}${escapeHtml(s.underlineMarker)}</span>`);
-      if (sm) result = result.replace(new RegExp(escRx(escapeHtml(s.strikeMarker)) + '(.+?)' + escRx(escapeHtml(s.strikeMarker)), 'g'),
-        (_, inner) => `<span class="hl-markup">${escapeHtml(s.strikeMarker)}${inner}${escapeHtml(s.strikeMarker)}</span>`);
-      lineHtml = result;
-    }
-
+    let lineHtml = _renderLine(line, s, hm, cm, markupRules, dim);
     if (idx === cursorLine) lineHtml = injectCursorAt(lineHtml, cursorCol);
-    return lineHtml;
+    // Wrap every line in a uniform element so editor.js can address pre().children[idx]
+    // directly and patch a single changed line without rebuilding the whole document.
+    return `<span class="hl-line">${lineHtml}</span>`;
   });
 
   // Trailing newline required for correct height in the overlay

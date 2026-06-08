@@ -170,7 +170,7 @@ const Editor = (() => {
   // ── Input handling ────────────────────────────────────────────────────────
 
   function onInput() {
-    rehighlight();
+    if (!_tryIncrementalRepaint()) rehighlight();
     if (!State.dirty) State.dirty = true;
     typewriterScroll();
     updateLineNumbers();
@@ -181,6 +181,48 @@ const Editor = (() => {
       // Handled via keydown
     }
     updateStatusBar();
+  }
+
+  // Cache describing the line the cursor sat on after the last render — lets
+  // onInput() locate the changed line via lastIndexOf/indexOf around the
+  // cursor (cost ~ line length) instead of text.split('\n') + full-array diff
+  // (cost ~ document size, plus ~9600 string allocations on a 90K-word doc).
+  let _prevText = null;
+  let _prevLineIdx = -1;
+  let _prevLineStart = -1;
+  let _prevLineEnd = -1;
+
+  // Locate the line containing offset `pos` in `text` without scanning the
+  // whole document for its boundaries (lastIndexOf/indexOf walk backward and
+  // forward from `pos` only). Still counts newlines before the line to get
+  // its index — O(document size), so only call this from full-render paths.
+  // Keeps _prevLineIdx/_prevLineStart/_prevLineEnd correct when the cursor
+  // moves WITHOUT an edit (click, arrow keys) — without this, a click to a
+  // different line followed by typing could make _tryIncrementalRepaint patch
+  // the wrong <span class="hl-line">. Cheap in the common case (cursor stays
+  // within the cached line's range — just a numeric comparison); only pays
+  // the O(document size) newline count when the cursor actually changes line.
+  function syncCursorLineCache() {
+    if (_prevText === null) return;
+    const text = ta().value;
+    if (text !== _prevText) return;   // an edit is pending a render — leave it to rehighlight/_tryIncrementalRepaint
+    const pos = ta().selectionStart;
+    if (pos >= _prevLineStart && pos <= _prevLineEnd) return;
+    const info = _lineInfoAt(text, pos);
+    _prevLineIdx = info.idx;
+    _prevLineStart = info.lineStart;
+    _prevLineEnd = info.lineEnd;
+  }
+
+  function _lineInfoAt(text, pos) {
+    // lastIndexOf(needle, -1) clamps to checking index 0 rather than meaning
+    // "nothing before position 0" — special-case pos === 0 to avoid that trap.
+    const lineStart = pos <= 0 ? 0 : text.lastIndexOf('\n', pos - 1) + 1;
+    let lineEnd = text.indexOf('\n', pos);
+    if (lineEnd === -1) lineEnd = text.length;
+    let idx = 0;
+    for (let i = text.indexOf('\n'); i !== -1 && i < lineStart; i = text.indexOf('\n', i + 1)) idx++;
+    return { idx, lineStart, lineEnd };
   }
 
   function rehighlight() {
@@ -206,8 +248,62 @@ const Editor = (() => {
       }
     }
     const cursorPos = State.settings.blockCursor ? ta().selectionStart : undefined;
-    pre().innerHTML = highlight(ta().value, State.settings, searchVisible ? _searchTerm : '', paraStart, paraEnd, cursorPos);
-    syncGutter();
+    const text = ta().value;
+    pre().innerHTML = highlight(text, State.settings, searchVisible ? _searchTerm : '', paraStart, paraEnd, cursorPos);
+    const info = _lineInfoAt(text, ta().selectionStart);
+    _prevText = text;
+    _prevLineIdx = info.idx;
+    _prevLineStart = info.lineStart;
+    _prevLineEnd = info.lineEnd;
+    scheduleSyncGutter();
+  }
+
+  // Patches the DOM node for a single changed line instead of replacing the
+  // whole overlay's innerHTML — on a 90K-word/9600-line document, rebuilding
+  // the full ~700KB HTML string and ~10K-span DOM subtree on EVERY keystroke
+  // is what causes typed characters to lag seconds behind: each keystroke
+  // queues another full-document re-render, and they pile up faster than the
+  // browser can paint them. Returns true if it handled the repaint, false if
+  // the caller should fall back to the full rehighlight().
+  //
+  // Only safe when the result is guaranteed identical to a full highlight()
+  // pass: that means no search overlay, no typewriter dimming (depends on
+  // paragraph boundaries — cross-line state) and no block-cursor span (only
+  // injected on the cursor's line, computed from the whole document).
+  // Finds the changed line via lastIndexOf/indexOf around the cursor (cost ~
+  // line length, NOT document size — see _prevText/_prevLineIdx above). A
+  // single atomic edit (the only kind a native 'input' event represents) can
+  // only insert/remove a '\n' if it changes this line's start offset or
+  // shifts what follows it; if both the start offset AND the trailing length
+  // (text.length - lineEnd) are unchanged from the last render, no newline
+  // was added or removed anywhere — this is a pure same-line content edit and
+  // _prevLineIdx still names the right <span class="hl-line"> to patch.
+  function _tryIncrementalRepaint() {
+    if (_prevText === null || _prevLineIdx < 0) return false;
+    if (!document.getElementById('search-bar').hidden) return false;
+    if (_typewriter) return false;
+    if (State.settings.blockCursor) return false;
+
+    const text = ta().value;
+    const pos  = ta().selectionStart;
+    const lineStart = pos <= 0 ? 0 : text.lastIndexOf('\n', pos - 1) + 1;
+    let lineEnd = text.indexOf('\n', pos);
+    if (lineEnd === -1) lineEnd = text.length;
+
+    if (lineStart !== _prevLineStart) return false;
+    if (text.length - lineEnd !== _prevText.length - _prevLineEnd) return false;
+
+    const lineEl = pre().children[_prevLineIdx];
+    if (!lineEl) return false;
+
+    const s = State.settings;
+    lineEl.innerHTML = _renderLine(text.slice(lineStart, lineEnd), s, escRx(s.headingMarker), escRx(s.commentMarker), _buildMarkupRules(s), false);
+    _prevText = text;
+    _prevLineStart = lineStart;
+    _prevLineEnd = lineEnd;
+    // _prevLineIdx unchanged — same line, no newlines shifted before it
+    scheduleSyncGutter();
+    return true;
   }
 
   function syncGutter() {
@@ -217,6 +313,20 @@ const Editor = (() => {
     const gutter   = input.offsetWidth - input.clientWidth;
     const baseRight = parseFloat(getComputedStyle(input).paddingRight) || 0;
     hl.style.paddingRight = (baseRight + gutter) + 'px';
+  }
+
+  // Reading offsetWidth/clientWidth/getComputedStyle right after mutating the (huge)
+  // overlay's innerHTML forces a synchronous layout of the whole document — on a
+  // 90K-word file that cost ~250ms PER KEYSTROKE. Deferring to rAF lets the browser
+  // fold the measurement into the layout it has to do for the next paint anyway,
+  // and collapses bursts of rehighlight() calls into a single measurement.
+  let _gutterRaf = null;
+  function scheduleSyncGutter() {
+    if (_gutterRaf !== null) return;
+    _gutterRaf = requestAnimationFrame(() => {
+      _gutterRaf = null;
+      syncGutter();
+    });
   }
 
   function syncScroll() {
@@ -240,25 +350,44 @@ const Editor = (() => {
     _typewriter = !_typewriter;
     document.getElementById('editor').classList.toggle('typewriter', _typewriter);
     setMsg(_typewriter ? 'Typewriter mode on' : 'Typewriter mode off');
+    _twCache = { lineIdx: -1, top: 0 };
     if (_typewriter) typewriterScroll();
   }
 
+  // linePixelTop() builds a hidden mirror <div> containing every line BEFORE lineIdx
+  // and measures its layout height — on a 90K-word doc with the cursor mid-document
+  // that's hundreds of KB of text laid out on EVERY keystroke (~400ms). But typing
+  // within the current line never changes the height of the lines before it, so the
+  // result is loop-invariant w.r.t. lineIdx — cache it and only recompute when the
+  // cursor actually moves to a different line.
+  let _twCache = { lineIdx: -1, top: 0 };
   function typewriterScroll() {
     if (!_typewriter) return;
     const input   = ta();
     const lineIdx = input.value.substring(0, input.selectionStart).split('\n').length - 1;
     const lh      = parseFloat(getComputedStyle(input).lineHeight) || 20;
-    input.scrollTop = Math.max(0, linePixelTop(input, lineIdx) - input.clientHeight / 2 + lh / 2);
+    if (_twCache.lineIdx !== lineIdx) {
+      _twCache = { lineIdx, top: linePixelTop(input, lineIdx) };
+    }
+    input.scrollTop = Math.max(0, _twCache.top - input.clientHeight / 2 + lh / 2);
   }
 
   // ── Line numbers ──────────────────────────────────────────────────────────
 
+  // Most keystrokes don't change the line count — skip the (expensive, full-text)
+  // rebuild when it's unchanged. Reading scrollTop right after rewriting `textContent`
+  // forces a synchronous reflow of the gutter (same layout-thrashing pattern as
+  // syncGutter — ~100-180ms on a 90K-word doc), so defer it to rAF; `syncScroll()`
+  // (wired to the textarea's `scroll` event) keeps it in sync the rest of the time.
+  let _lastLineCount = -1;
   function updateLineNumbers() {
     const el = document.getElementById('ed-linenos');
     if (!el || el.style.display === 'none') return;
     const count = (ta().value.match(/\n/g) || []).length + 1;
+    if (count === _lastLineCount) return;
+    _lastLineCount = count;
     el.textContent = Array.from({ length: count }, (_, i) => i + 1).join('\n');
-    el.scrollTop = ta().scrollTop;
+    requestAnimationFrame(() => { el.scrollTop = ta().scrollTop; });
   }
 
   function applyLineNumbers() {
@@ -266,7 +395,7 @@ const Editor = (() => {
     if (!el) return;
     const show = !!State.settings.lineNumbers;
     el.style.display = show ? 'block' : 'none';
-    if (show) updateLineNumbers();
+    if (show) { _lastLineCount = -1; updateLineNumbers(); }
   }
 
   function toggleLineNumbers() {
@@ -481,12 +610,28 @@ const Editor = (() => {
     }
     const s = State.settings;
     const doc = State.doc;
-    const wc = doc ? wordCount(ta().value) : 0;
-    if (doc && _sessionBaseline >= 0) {
-      const cur = Math.max(0, wc - _sessionBaseline);
-      if (cur > _sessionMaxToday) _sessionMaxToday = cur;
-    }
-    const today = doc ? (_sessionBaseline >= 0 ? _sessionMaxToday : todayWords(doc.id)) : 0;
+
+    // Lazily compute expensive full-text values — only when a configured status-bar
+    // token actually needs them. wordCount() alone scans the whole document, and on
+    // a 90K-word file this ran on every keystroke even when "words" wasn't displayed.
+    let _wc = null;
+    const wc = () => {
+      if (_wc === null) _wc = doc ? wordCount(ta().value) : 0;
+      return _wc;
+    };
+    let _today = null;
+    const today = () => {
+      if (_today === null) {
+        if (doc && _sessionBaseline >= 0) {
+          const cur = Math.max(0, wc() - _sessionBaseline);
+          if (cur > _sessionMaxToday) _sessionMaxToday = cur;
+          _today = _sessionMaxToday;
+        } else {
+          _today = doc ? todayWords(doc.id) : 0;
+        }
+      }
+      return _today;
+    };
     const clk = new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
 
     function buildZone(spec) {
@@ -494,13 +639,13 @@ const Editor = (() => {
         switch (tok) {
           case 'filename': return doc ? doc.name : '';
           case 'dirty':    return State.dirty ? '[+]' : '';
-          case 'words':    return doc ? `${wc}w` : '';
+          case 'words':    return doc ? `${wc()}w` : '';
           case 'chars':    return doc ? `${(ta().value || '').length}c` : '';
-          case 'goal':     return s.wordGoal > 0 ? `${today}/${s.wordGoal}` : '';
+          case 'goal':     return s.wordGoal > 0 ? `${today()}/${s.wordGoal}` : '';
           case 'clock':    return clk;
           case 'timer':    return s.timerShow ? Timer.format() : '';
-          case 'today':    return doc && today > 0 ? `${today}↑` : '';
-          case 'percent':  return (doc && s.wordGoal > 0) ? `${Math.min(100, Math.round(wc / s.wordGoal * 100))}%` : '';
+          case 'today':    return doc && today() > 0 ? `${today()}↑` : '';
+          case 'percent':  return (doc && s.wordGoal > 0) ? `${Math.min(100, Math.round(wc() / s.wordGoal * 100))}%` : '';
           case 'lines':    return doc ? `${(ta().value.match(/\n/g) || []).length + 1}L` : '';
           case 'line': {
             if (!doc) return '';
@@ -519,10 +664,10 @@ const Editor = (() => {
             const count = ta().value.split(/\n{2,}/).filter(p => p.trim()).length;
             return count ? `${count}§` : '';
           }
-          case 'pages':   return (doc && wc > 0) ? `${Math.ceil(wc / 250)}p` : '';
+          case 'pages':   return (doc && wc() > 0) ? `${Math.ceil(wc() / 250)}p` : '';
           case 'reading': {
-            if (!doc || !wc) return '';
-            const mins = Math.ceil(wc / 200);
+            if (!doc || !wc()) return '';
+            const mins = Math.ceil(wc() / 200);
             return mins < 60 ? `${mins}min` : `${Math.floor(mins / 60)}h${mins % 60 ? (mins % 60) + 'm' : ''}`;
           }
           case 'space':    return ' ';
@@ -670,6 +815,7 @@ const Editor = (() => {
 
   return {
     open, close, save, onInput, syncScroll, syncGutter, rehighlight, updateStatusBar, setMsg,
+    syncCursorLineCache,
     saveCursorPos, applyLineNumbers,
     toggleTypewriter, typewriterScroll, toggleLineNumbers, gotoLine, gotoLineGo, gotoLineClose,
     applyLineMarker, applyInlineMarker, applyHeading,

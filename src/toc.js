@@ -2,6 +2,9 @@
 // Table of Contents — side panel (right)
 const TOC = (() => {
   let _visible = false;
+  let _pinned  = false;
+  let _focused = -1;
+  let _wired   = false;
 
   function _show(visible) {
     const panel = document.getElementById('toc-panel');
@@ -10,6 +13,20 @@ const TOC = (() => {
     panel.style.display = visible ? 'flex' : 'none';
     const btn = document.getElementById('ed-toc-btn');
     if (btn) btn.classList.toggle('active', visible);
+  }
+
+  function _wire() {
+    if (_wired) return;
+    _wired = true;
+    const pinBtn = document.getElementById('toc-pin-btn');
+    if (!pinBtn) return;
+    pinBtn.addEventListener('click', () => {
+      _pinned = !_pinned;
+      pinBtn.classList.toggle('active', _pinned);
+      pinBtn.title = _pinned
+        ? 'Unpin TOC (closes when selecting a chapter)'
+        : 'Pin TOC (stays open when selecting a chapter)';
+    });
   }
 
   function parse(text, s) {
@@ -55,12 +72,48 @@ const TOC = (() => {
     return top;
   }
 
+  function _items() {
+    return Array.from(document.querySelectorAll('#toc-list .toc-item[data-line]'));
+  }
+
+  function _focusItem(idx) {
+    const items = _items();
+    items.forEach(it => it.classList.remove('toc-focused'));
+    if (!items.length) { _focused = -1; return; }
+    _focused = ((idx % items.length) + items.length) % items.length;
+    items[_focused].classList.add('toc-focused');
+    items[_focused].scrollIntoView({ block: 'nearest' });
+  }
+
+  function move(delta) {
+    if (!_items().length) return;
+    _focusItem(_focused < 0 ? (delta > 0 ? 0 : _items().length - 1) : _focused + delta);
+  }
+
+  function selectFocused() {
+    const items = _items();
+    if (_focused >= 0 && _focused < items.length) items[_focused].click();
+  }
+
+  function _select(ta, lineIdx) {
+    const offset = lineToOffset(ta.value, lineIdx);
+    ta.focus();
+    ta.setSelectionRange(offset, offset);
+    ta.scrollTop = Math.max(0, linePixelTop(ta, lineIdx) - ta.clientHeight / 3);
+    if (!_pinned) {
+      _visible = false;
+      _show(false);
+      _focused = -1;
+    }
+  }
+
   function render() {
     const ta      = document.getElementById('ed-input');
     const list    = document.getElementById('toc-list');
     if (!ta || !list) return;
     const entries = parse(ta.value, State.settings);
     list.innerHTML = '';
+    _focused = -1;
     if (!entries.length) {
       const div = document.createElement('div');
       div.className = 'toc-item';
@@ -72,29 +125,46 @@ const TOC = (() => {
     entries.forEach(e => {
       const div = document.createElement('div');
       div.className = `toc-item level-${e.level}`;
+      div.dataset.line = e.line;
       div.textContent = e.title;
-      div.addEventListener('click', () => {
-        const offset = lineToOffset(ta.value, e.line);
-        ta.focus();
-        ta.setSelectionRange(offset, offset);
-        ta.scrollTop = Math.max(0, linePixelTop(ta, e.line) - ta.clientHeight / 3);
-      });
+      div.addEventListener('click', () => _select(ta, e.line));
       list.appendChild(div);
     });
   }
 
+  function focusPanel() {
+    const list = document.getElementById('toc-list');
+    if (list) list.focus({ preventScroll: true });
+    _focusItem(0);
+  }
+
   function toggle() {
+    _wire();
     _visible = !_visible;
     _show(_visible);
-    if (_visible) render();
+    if (_visible) {
+      render();
+      focusPanel();
+    } else {
+      _focused = -1;
+    }
   }
 
   function hide() {
     _visible = false;
     _show(false);
+    _focused = -1;
   }
 
   function refresh() { if (_visible) render(); }
 
-  return { toggle, hide, refresh, isVisible: () => _visible };
+  return {
+    toggle, hide, refresh, move, selectFocused, focusPanel,
+    isVisible: () => _visible,
+    isPinned: () => _pinned,
+    isFocused: () => {
+      const panel = document.getElementById('toc-panel');
+      return !!(panel && panel.contains(document.activeElement));
+    }
+  };
 })();

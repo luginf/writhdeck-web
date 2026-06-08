@@ -215,6 +215,9 @@ input[type="color"] { width: 40px; height: 24px; padding: 1px; border: 1px solid
 }
 
 #toc-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   padding: 6px 12px;
   font-size: 0.75em;
   color: var(--fg-bar);
@@ -223,6 +226,16 @@ input[type="color"] { width: 40px; height: 24px; padding: 1px; border: 1px solid
   border-bottom: 1px solid var(--bg2);
   flex-shrink: 0;
 }
+
+.toc-pin-btn {
+  cursor: pointer;
+  font-size: 1.2em;
+  line-height: 1;
+  opacity: 0.5;
+  filter: grayscale(1);
+}
+.toc-pin-btn:hover { opacity: 0.8; }
+.toc-pin-btn.active { opacity: 1; filter: none; }
 
 #ed-highlight,
 #ed-input {
@@ -269,6 +282,7 @@ input[type="color"] { width: 40px; height: 24px; padding: 1px; border: 1px solid
 #editor.no-blink:not(.block-cursor) #ed-input { animation: caret-show 1ms forwards; }
 
 /* highlight spans */
+.hl-line     { display: inline; }  /* per-line wrapper — addressable for incremental repaint */
 .hl-heading  { color: var(--heading); }
 .hl-comment  { color: var(--comment); }
 .hl-markup   { color: var(--markup); }
@@ -456,6 +470,7 @@ dialog::backdrop { background: rgba(0,0,0,0.5); }
   text-overflow: ellipsis;
 }
 .toc-item:hover { background: var(--bg-sel); }
+.toc-item.toc-focused { box-shadow: inset 3px 0 0 var(--heading); background: var(--bg-sel); }
 .toc-item.level-2 { padding-left: 22px; color: var(--fg-bar); }
 .toc-item.level-3 { padding-left: 32px; color: var(--fg-bar); font-size: 0.8em; }
 

@@ -381,6 +381,27 @@ function onKeydown(e) {
     return;
   }
 
+  // TOC keyboard navigation — active while focus is on the panel (moved there on open)
+  if (inEditor && TOC.isVisible() && TOC.isFocused()) {
+    if (key === 'ArrowDown' || key === 'ArrowUp') {
+      e.preventDefault(); e.stopPropagation();
+      TOC.move(key === 'ArrowDown' ? 1 : -1);
+      return;
+    }
+    if (key === 'Enter') {
+      e.preventDefault(); e.stopPropagation();
+      TOC.selectFocused();
+      return;
+    }
+    if (lkey === 'escape') {
+      e.preventDefault(); e.stopPropagation();
+      TOC.hide();
+      const ta = document.getElementById('ed-input');
+      if (ta) ta.focus();
+      return;
+    }
+  }
+
   // Alt+Enter — fullscreen toggle
   if (e.altKey && key === 'Enter') {
     e.preventDefault(); e.stopPropagation();
@@ -532,9 +553,11 @@ async function init() {
   const ta = document.getElementById('ed-input');
   ta.addEventListener('input',  () => Editor.onInput());
   ta.addEventListener('scroll', () => Editor.syncScroll());
-  // Update line/col on cursor move (click or keyboard navigation)
-  ta.addEventListener('click',   () => { Editor.updateStatusBar(); if (State.settings.blockCursor) Editor.rehighlight(); });
-  ta.addEventListener('keyup',   () => { Editor.updateStatusBar(); if (State.settings.blockCursor) Editor.rehighlight(); });
+  // Update line/col on cursor move (click or keyboard navigation); also keep
+  // the incremental-repaint line cache in sync so a click to a different line
+  // followed by typing patches the right DOM node (see syncCursorLineCache).
+  ta.addEventListener('click',   () => { Editor.syncCursorLineCache(); Editor.updateStatusBar(); if (State.settings.blockCursor) Editor.rehighlight(); });
+  ta.addEventListener('keyup',   () => { Editor.syncCursorLineCache(); Editor.updateStatusBar(); if (State.settings.blockCursor) Editor.rehighlight(); });
 
   // Header buttons
   document.getElementById('br-new-btn').addEventListener('click',    () => Browser.newDoc());
@@ -557,6 +580,11 @@ async function init() {
       Browser.render();
     }
     await Editor.open(doc);
+  });
+
+  document.getElementById('br-help-settings').addEventListener('click', () => {
+    helpDetails.open = false;
+    Settings.show();
   });
 
   // File import input
