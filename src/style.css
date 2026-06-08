@@ -374,6 +374,8 @@ dialog {
   overflow: auto;
 }
 dialog::backdrop { background: rgba(0,0,0,0.5); }
+#close-confirm-msg { padding: 16px 20px 4px; max-width: 340px; }
+.dlg-btn-row { display: flex; justify-content: flex-end; gap: 8px; padding: 12px 20px 16px; }
 
 /* Settings */
 #settings-dlg { width: 520px; }

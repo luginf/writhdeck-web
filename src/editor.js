@@ -77,10 +77,40 @@ const Editor = (() => {
     Browser.render();
   }
 
+  // Yes/No/Cancel confirmation matching the Tcl/Tk and Android semantics:
+  // Yes = save then close, No = discard changes and close, Cancel = stay open.
+  // A native confirm() only offers two buttons, which forced "Cancel" to mean
+  // "close without saving" — there was no way to abort closing altogether.
+  let _closeConfirmWired   = false;
+  let _closeConfirmResolve = null;
+  function confirmSaveBeforeClose(name) {
+    if (!_closeConfirmWired) {
+      _closeConfirmWired = true;
+      const dlg = document.getElementById('close-confirm-dlg');
+      const respond = val => {
+        const resolve = _closeConfirmResolve;
+        _closeConfirmResolve = null;
+        dlg.close();
+        if (resolve) resolve(val);
+      };
+      document.getElementById('close-confirm-yes').addEventListener('click', () => respond('yes'));
+      document.getElementById('close-confirm-no').addEventListener('click', () => respond('no'));
+      document.getElementById('close-confirm-cancel').addEventListener('click', () => respond('cancel'));
+      dlg.addEventListener('cancel', e => { e.preventDefault(); respond('cancel'); }); // Esc → Cancel
+    }
+    return new Promise(resolve => {
+      _closeConfirmResolve = resolve;
+      document.getElementById('close-confirm-msg').textContent = `Save "${name}" before closing?`;
+      document.getElementById('close-confirm-dlg').showModal();
+    });
+  }
+
   async function close() {
     if (State.dirty && !State.doc.isIni) {
-      const ok = confirm(`Save "${State.doc.name}" before closing?`);
-      if (ok) await save();
+      const choice = await confirmSaveBeforeClose(State.doc.name);
+      if (choice === 'cancel') return;
+      if (choice === 'yes') await save();
+      // 'no' — discard changes and proceed to close
     }
     saveCursorPos();
     stopAutosave();
