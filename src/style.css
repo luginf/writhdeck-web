@@ -282,7 +282,18 @@ input[type="color"] { width: 40px; height: 24px; padding: 1px; border: 1px solid
 #editor.no-blink:not(.block-cursor) #ed-input { animation: caret-show 1ms forwards; }
 
 /* highlight spans */
-.hl-line     { display: inline; }  /* per-line wrapper — addressable for incremental repaint */
+/* Per-line wrapper — inline-block so each span is an atomic unit in the pre's
+   IFC. contain:layout isolates internal reflow: patching one span's innerHTML
+   won't cascade to siblings, giving O(line) incremental repaint cost instead
+   of O(document). No block-div intermediary means heights stay pixel-perfect
+   with the textarea (no accumulated drift). */
+.hl-line {
+  display: inline-block;
+  width: 100%;
+  min-height: 1lh;
+  vertical-align: top;
+  contain: layout style;
+}
 .hl-heading  { color: var(--heading); }
 .hl-comment  { color: var(--comment); }
 .hl-markup   { color: var(--markup); }

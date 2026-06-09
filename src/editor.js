@@ -417,6 +417,7 @@ const Editor = (() => {
     if (count === _lastLineCount) return;
     _lastLineCount = count;
     el.textContent = Array.from({ length: count }, (_, i) => i + 1).join('\n');
+    el.style.width = `calc(${String(count).length + 1}ch + 12px)`;
     requestAnimationFrame(() => { el.scrollTop = ta().scrollTop; });
   }
 

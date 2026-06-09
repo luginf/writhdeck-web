@@ -85,12 +85,11 @@ function highlight(text, s, searchTerm, paraStart, paraEnd, cursorPos) {
     const dim = hasPara && (idx < paraStart || idx > paraEnd);
     let lineHtml = _renderLine(line, s, hm, cm, markupRules, dim);
     if (idx === cursorLine) lineHtml = injectCursorAt(lineHtml, cursorCol);
-    // Wrap every line in a uniform element so editor.js can address pre().children[idx]
-    // directly and patch a single changed line without rebuilding the whole document.
     return `<span class="hl-line">${lineHtml}</span>`;
   });
 
-  // Trailing newline required for correct height in the overlay
+  // \n between spans = line break in the pre's pre-wrap IFC.
+  // Trailing \n ensures overlay height matches the textarea (cursor line at end).
   if (!searchTerm) return out.join('\n') + '\n';
 
   // Inject search highlights into text nodes only (skip HTML tags)
