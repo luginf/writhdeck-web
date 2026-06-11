@@ -374,6 +374,13 @@ function onKeydown(e) {
     return;
   }
 
+  // Shift+Ctrl+F11 — toggle pinned TOC panel (mirrors Tcl key_toc_pinned)
+  if (ctrl && shift && key === 'F11') {
+    e.preventDefault(); e.stopPropagation();
+    if (inEditor) TOC.togglePin();
+    return;
+  }
+
   // F11 — always intercept: TOC toggle in editor, ignored elsewhere
   if (key === 'F11') {
     e.preventDefault(); e.stopPropagation();
@@ -448,17 +455,31 @@ function onKeydown(e) {
         case 'w': Editor.toggleTypewriter(); break;
         case 'm': showMainMenu(); break;
         case 'q': Editor.close();            break;
+        case '1': Editor.applyHeading(1);    break;
+        case '2': Editor.applyHeading(2);    break;
+        case '3': Editor.applyHeading(3);    break;
+        case 'b': Editor.applyInlineMarker(State.settings.boldMarker);      break;
+        case 'u': Editor.applyInlineMarker(State.settings.underlineMarker); break;
+        case 'x': Editor.applyInlineMarker(State.settings.strikeMarker);    break;
+        case '/': Editor.applyLineMarker(State.settings.commentMarker);     break;
         // any other key: just exit cmd mode (already done above)
       }
       return;
     }
 
+    if (ctrl && shift && lkey === 's') { e.preventDefault(); e.stopPropagation(); Editor.saveAs();        return; }
     if (ctrl && lkey === 's')     { e.preventDefault(); e.stopPropagation(); Editor.save();              return; }
+    // `shift` deliberately not checked: Firefox intercepts plain Ctrl+Q as "Quit" before
+    // JS sees it, so Ctrl+Shift+Q is the only way to close on Firefox — letting it match
+    // here too means one binding covers both browsers.
     if (ctrl && lkey === 'q')     { e.preventDefault(); e.stopPropagation(); Editor.close();             return; }
     if (ctrl && lkey === 'f')     { e.preventDefault(); e.stopPropagation(); Editor.searchOpen(false);   return; }
     if (ctrl && lkey === 'h')     { e.preventDefault(); e.stopPropagation(); Editor.searchOpen(true);    return; }
     if (ctrl && lkey === 'g')     { e.preventDefault(); e.stopPropagation(); Editor.gotoLine();          return; }
     if (ctrl && lkey === 'l')     { e.preventDefault(); e.stopPropagation(); Editor.toggleLineNumbers();  return; }
+    if (ctrl && lkey === 'b')     { e.preventDefault(); e.stopPropagation(); Editor.applyInlineMarker(State.settings.boldMarker);      return; }
+    if (ctrl && lkey === 'i')     { e.preventDefault(); e.stopPropagation(); Editor.applyInlineMarker(State.settings.italicMarker);    return; }
+    if (ctrl && lkey === 'u')     { e.preventDefault(); e.stopPropagation(); Editor.applyInlineMarker(State.settings.underlineMarker); return; }
     if (e.altKey && lkey === 't') { e.preventDefault(); e.stopPropagation(); Timer.toggle(); Editor.updateStatusBar(); return; }
     if (e.altKey && lkey === 'c') { e.preventDefault(); e.stopPropagation(); Editor.enterCmdMode(); return; }
     if (e.altKey && lkey === 'm') { e.preventDefault(); e.stopPropagation(); showMainMenu(); return; }
@@ -475,8 +496,9 @@ function onKeydown(e) {
       Editor.enterCmdMode();
       return;
     }
-    // Hemingway mode
-    if (State.settings.hemingwayMode && (lkey === 'backspace' || lkey === 'delete')) {
+    // Hemingway mode is a modifier of typewriter mode (mirrors Tcl/Android):
+    // it has no effect at all unless typewriter mode is also active.
+    if (State.settings.hemingwayMode && Editor.isTypewriter() && (lkey === 'backspace' || lkey === 'delete')) {
       e.preventDefault(); return;
     }
   }
@@ -511,6 +533,31 @@ function onKeydown(e) {
     if (lkey === 'w' && Browser.hasFSA) { e.preventDefault(); Browser.openFolder();   return; }
     if (lkey === 's') { e.preventDefault(); Stats.show();            return; }
     if (lkey === 'c') { e.preventDefault(); Settings.show();         return; }
+
+    // Shortcuts acting on the keyboard-focused row (mirrors Tcl browser r/d/b/f/i)
+    if (lkey === 'r' || lkey === 'd' || lkey === 'b' || lkey === 'f' || lkey === 'i') {
+      const doc = Browser.getFocusedDoc();
+      if (!doc) return;
+      e.preventDefault();
+      switch (lkey) {
+        case 'r': Browser.renameDoc(doc); break;
+        case 'd': Browser.deleteDoc(doc); break;
+        case 'b': Browser.backupDoc(doc); break;
+        case 'f': toggleFavorite(doc.id); Browser.render(); break;
+        case 'i': showFileInfo(doc);      break;
+      }
+      return;
+    }
+
+    // h — toggle the help menu (mirrors Tcl browser 'h' help)
+    if (lkey === 'h') {
+      e.preventDefault();
+      if (_helpDetails) _helpDetails.open = !_helpDetails.open;
+      return;
+    }
+
+    // z — reload (mirrors Tcl browser 'z' reload)
+    if (lkey === 'z') { e.preventDefault(); location.reload(); return; }
   }
 }
 
@@ -555,9 +602,10 @@ async function init() {
   ta.addEventListener('scroll', () => Editor.syncScroll());
   // Update line/col on cursor move (click or keyboard navigation); also keep
   // the incremental-repaint line cache in sync so a click to a different line
-  // followed by typing patches the right DOM node (see syncCursorLineCache).
-  ta.addEventListener('click',   () => { Editor.syncCursorLineCache(); Editor.updateStatusBar(); if (State.settings.blockCursor) Editor.rehighlight(); });
-  ta.addEventListener('keyup',   () => { Editor.syncCursorLineCache(); Editor.updateStatusBar(); if (State.settings.blockCursor) Editor.rehighlight(); });
+  // followed by typing patches the right DOM node (see syncCursorLineCache),
+  // and move the block-cursor span (if enabled) without a full rehighlight().
+  ta.addEventListener('click',   () => { Editor.syncCursorLineCache(); Editor.updateStatusBar(); Editor.syncBlockCursor(); });
+  ta.addEventListener('keyup',   () => { Editor.syncCursorLineCache(); Editor.updateStatusBar(); Editor.syncBlockCursor(); });
 
   // Header buttons
   document.getElementById('br-new-btn').addEventListener('click',    () => Browser.newDoc());
@@ -653,17 +701,19 @@ async function init() {
     [1, 2, 3].forEach(lvl => {
       const btn = edMenu.querySelector(`[data-markup="h${lvl}"]`);
       const p   = hm.repeat(lvl);
-      btn.innerHTML = hm ? `<span>${p} H${lvl} ${p}</span>` : `<span>H${lvl}</span>`;
+      const txt = hm ? `${p} H${lvl} ${p}` : `H${lvl}`;
+      btn.innerHTML = `<span>${txt}</span> <span class="hint">${lvl}</span>`;
       btn.disabled  = !hm;
     });
-    [['comment', s.commentMarker, 'Comment (line)'],
-     ['bold',    s.boldMarker,    'Bold'],
-     ['italic',  s.italicMarker,  'Italic'],
-     ['underline', s.underlineMarker, 'Underline'],
-     ['strike',  s.strikeMarker,  'Strike'],
-    ].forEach(([type, marker, label]) => {
+    [['comment', s.commentMarker, 'Comment (line)', '/'],
+     ['bold',    s.boldMarker,    'Bold',           'b'],
+     ['italic',  s.italicMarker,  'Italic',         null],
+     ['underline', s.underlineMarker, 'Underline',  'u'],
+     ['strike',  s.strikeMarker,  'Strike',         'x'],
+    ].forEach(([type, marker, label, hint]) => {
       const btn = edMenu.querySelector(`[data-markup="${type}"]`);
-      btn.innerHTML = marker ? `<span>${marker} ${label}</span>` : `<span>${label}</span>`;
+      const txt = marker ? `${marker} ${label}` : label;
+      btn.innerHTML = hint ? `<span>${txt}</span> <span class="hint">${hint}</span>` : `<span>${txt}</span>`;
       btn.disabled  = !marker;
     });
     // Update toggle labels
@@ -822,6 +872,11 @@ async function init() {
     else if (e.key === 'Enter')          Editor.searchNext();
     else if (e.key === 'Escape')         Editor.searchClose();
   });
+  document.getElementById('replace-input').addEventListener('keydown', e => {
+    if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); Editor.replaceAll(); }
+    else if (e.key === 'Enter')                         { e.preventDefault(); Editor.replaceOne(); }
+    else if (e.key === 'Escape')                        Editor.searchClose();
+  });
 
   // Goto bar
   document.getElementById('goto-go').addEventListener('click',    () => Editor.gotoLineGo());
@@ -881,6 +936,13 @@ async function init() {
       case 'w': Editor.toggleTypewriter(); break;
       case 'm': showMainMenu();            break;
       case 'q': Editor.close();            break;
+      case '1': Editor.applyHeading(1);    break;
+      case '2': Editor.applyHeading(2);    break;
+      case '3': Editor.applyHeading(3);    break;
+      case 'b': Editor.applyInlineMarker(State.settings.boldMarker);      break;
+      case 'u': Editor.applyInlineMarker(State.settings.underlineMarker); break;
+      case 'x': Editor.applyInlineMarker(State.settings.strikeMarker);    break;
+      case '/': Editor.applyLineMarker(State.settings.commentMarker);     break;
     }
   });
 

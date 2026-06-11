@@ -54,7 +54,7 @@ make clean  # removes writhdeck.html
 | Shortcut | Action |
 |---|---|
 | `Ctrl+S` | Save |
-| `Ctrl+Q` | Close document |
+| `Ctrl+Q` | Close document (`Ctrl+Shift+Q` on Firefox, see [Browser notes](#browser-notes)) |
 | `Ctrl+F` | Find (live match highlighting) |
 | `Ctrl+H` | Find & replace |
 | `Ctrl+G` | Go to line |
@@ -96,6 +96,12 @@ The status bar becomes an interactive row of command buttons. Works in fullscree
 | `w` | Watch a folder |
 | `s` | Stats |
 | `c` | Settings |
+
+## Browser notes
+
+- **Disk file support** (open/watch files, edits saved straight back to disk) requires the File System Access API — available in Chrome, Edge, Brave, and other Chromium-based browsers. Firefox falls back to IndexedDB-only storage.
+- **Large documents** (tens of thousands of words): Firefox is noticeably slower than Chromium-based browsers, especially when a full re-render is triggered (search highlighting, Typewriter mode, multi-line edits like paste/undo). Chromium-based browsers are recommended for very large documents.
+- **`Ctrl+Q`**: Firefox intercepts the plain shortcut as its own "Quit" command before the page sees it — use `Ctrl+Shift+Q` to close the document (works in both Firefox and Chrome).
 
 ## Status bar tokens
 

@@ -64,6 +64,7 @@ const Browser = (() => {
     const row = document.createElement('div');
     row.className = 'br-item br-nav-item';
     row.tabIndex = -1;
+    row.dataset.id = String(doc.id);
     if (State.doc && State.doc.id === doc.id) row.classList.add('selected');
 
     // No pin for folder files (they are ephemeral, not in IDB)
@@ -243,6 +244,30 @@ const Browser = (() => {
     render();
   }
 
+  // Returns the document corresponding to the currently keyboard-focused
+  // browser row (`.br-focused`), or null if none / the row isn't a regular
+  // stored document (e.g. writhdeck.ini, watched-folder files).
+  function getFocusedDoc() {
+    const row = document.querySelector('#br-list .br-nav-item.br-focused');
+    if (!row || !row.dataset.id || row.dataset.id === '__ini__') return null;
+    return State.docs.find(d => String(d.id) === row.dataset.id) || null;
+  }
+
+  // Saves a timestamped copy of `doc` as a new document (mirrors Tcl's
+  // do-backup, which copies the file into DOCS_DIR/backups/ with a
+  // "%Y-%m-%dT%Hh%Mm%S" timestamp).
+  async function backupDoc(doc) {
+    const d = new Date();
+    const pad = n => String(n).padStart(2, '0');
+    const stamp = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}` +
+      `T${pad(d.getHours())}h${pad(d.getMinutes())}m${pad(d.getSeconds())}`;
+    const name = uniqueName(`${doc.name} (backup ${stamp})`);
+    const copy = { name, content: doc.content || '', created: Date.now(), modified: Date.now() };
+    await DB.saveDoc(copy);
+    State.docs.push(copy);
+    render();
+  }
+
   function exportDocFrom(doc, fmt) {
     const ext  = fmt === 'md' ? '.md' : '.txt';
     const name = doc.name.replace(/\.[^.]+$/, '') + ext;
@@ -258,6 +283,15 @@ const Browser = (() => {
 
   // ── Shortcut bar ──────────────────────────────────────────────────────────
 
+  // Wraps an action so it only fires when a browser row is keyboard-focused
+  // (used for shortcuts that act on the focused document: r/d/b/f/i).
+  function withFocused(fn) {
+    return () => {
+      const doc = getFocusedDoc();
+      if (doc) fn(doc);
+    };
+  }
+
   function buildShortcutBar() {
     const bar = document.getElementById('br-bar');
     bar.innerHTML = '';
@@ -269,7 +303,17 @@ const Browser = (() => {
       ] : []),
       ['Ctrl+O', 'import copy', () => document.getElementById('file-import-input').click()],
       ['s', 'stats', () => Stats.show()],
-      ['c', 'config', () => Settings.show()]
+      ['c', 'config', () => Settings.show()],
+      ['r', 'rename',   withFocused(renameDoc)],
+      ['d', 'delete',   withFocused(deleteDoc)],
+      ['b', 'backup',   withFocused(backupDoc)],
+      ['f', 'favorite', withFocused(doc => { toggleFavorite(doc.id); render(); })],
+      ['i', 'info',     withFocused(doc => document.dispatchEvent(new CustomEvent('writhdeck-show-info', { detail: doc })))],
+      ['h', 'help', () => {
+        const d = document.getElementById('br-help-details');
+        d.open = !d.open;
+      }],
+      ['z', 'reload', () => location.reload()]
     ];
     shortcuts.forEach(([key, label, fn]) => {
       const sp = document.createElement('span');
@@ -284,6 +328,7 @@ const Browser = (() => {
     const row = document.createElement('div');
     row.className = 'br-item br-nav-item';
     row.tabIndex = -1;
+    row.dataset.id = '__ini__';
     if (State.doc && State.doc.isIni) row.classList.add('selected');
 
     const ico = document.createElement('span');
@@ -431,5 +476,5 @@ const Browser = (() => {
     render();
   }
 
-  return { render, newDoc, renameDoc, deleteDoc, openFromDisk, openFolder, hideContextMenu, hasFSA };
+  return { render, newDoc, renameDoc, deleteDoc, openFromDisk, openFolder, hideContextMenu, hasFSA, nameExists, uniqueName, getFocusedDoc, backupDoc };
 })();

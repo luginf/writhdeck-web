@@ -13,6 +13,7 @@ const Editor = (() => {
     ['f','find'], ['r','replace'], ['g','goto'], ['n','linenos'], ['o','toc'],
     ['d','dark'],  ['c','config'], ['e','export'], ['s','stats'], ['a','analyse'],
     ['i','info'],  ['t','timer'], ['p','pause'], ['w','typewriter'], ['m','menu'], ['q','close'],
+    ['1','h1'], ['2','h2'], ['3','h3'], ['b','bold'], ['u','underline'], ['x','strike'], ['/','comment'],
   ];
   let _typewriter       = false;
   let _wc               = 0;
@@ -197,6 +198,66 @@ const Editor = (() => {
     updateStatusBar();
   }
 
+  // Save As (Ctrl+Shift+S) — mirrors the Tcl GUI's Save-As. With the File System
+  // Access API, lets the user pick a new file/location and re-points this document
+  // at it. Without FSA (e.g. Firefox), falls back to saving a copy under a new name
+  // in browser storage and switches the editor to that copy.
+  async function saveAs() {
+    if (!State.doc || State.doc.isIni) return;
+    if (typeof window.showSaveFilePicker === 'function') {
+      let handle;
+      try {
+        handle = await window.showSaveFilePicker({
+          suggestedName: State.doc.name,
+          types: [{ description: 'Text', accept: { 'text/plain': ['.txt', '.md', '.t2t'] } }]
+        });
+      } catch (e) {
+        if (e.name !== 'AbortError') { setMsg('Save As failed'); console.error(e); }
+        return;
+      }
+      try {
+        const writable = await handle.createWritable();
+        await writable.write(ta().value);
+        await writable.close();
+      } catch (e) {
+        setMsg('Save As failed'); console.error(e);
+        return;
+      }
+      State.doc.fileHandle = handle;
+      State.doc.name       = handle.name;
+      State.doc.fromDisk    = true;
+      State.doc.content     = ta().value;
+      State.doc.modified    = Date.now();
+      await DB.saveDoc(State.doc);
+      const idx = State.docs.findIndex(d => d.id === State.doc.id);
+      if (idx >= 0) State.docs[idx] = State.doc;
+      State.dirty = false;
+      document.title = `${State.doc.name} — Writhdeck`;
+      setMsg('Saved as ' + State.doc.name);
+      updateStatusBar();
+      Browser.render();
+      return;
+    }
+
+    // Fallback: save a copy under a new name in browser storage
+    const name = prompt('Save as (new name):', Browser.uniqueName(State.doc.name));
+    if (!name || !name.trim()) return;
+    const trimmed = name.trim();
+    if (Browser.nameExists(trimmed)) {
+      alert(`A document named "${trimmed}" already exists.`);
+      return;
+    }
+    const copy = { name: trimmed, content: ta().value, created: Date.now(), modified: Date.now() };
+    await DB.saveDoc(copy);
+    State.docs.push(copy);
+    State.doc   = copy;
+    State.dirty = false;
+    document.title = `${copy.name} — Writhdeck`;
+    setMsg('Saved as ' + copy.name);
+    updateStatusBar();
+    Browser.render();
+  }
+
   // ── Input handling ────────────────────────────────────────────────────────
 
   function onInput() {
@@ -221,6 +282,15 @@ const Editor = (() => {
   let _prevLineIdx = -1;
   let _prevLineStart = -1;
   let _prevLineEnd = -1;
+
+  // Tracks which <span class="hl-line"> currently renders the <span class="hl-cursor">
+  // (block cursor mode only) and that line's offsets in the source text — lets
+  // syncBlockCursor()/_tryIncrementalRepaint() move the cursor span by patching
+  // just the old/new line(s) instead of a full rehighlight(). -1 when block
+  // cursor is off or no cursor has been placed yet.
+  let _prevCursorLineIdx = -1;
+  let _prevCursorLineStart = -1;
+  let _prevCursorLineEnd = -1;
 
   // Locate the line containing offset `pos` in `text` without scanning the
   // whole document for its boundaries (lastIndexOf/indexOf walk backward and
@@ -285,6 +355,13 @@ const Editor = (() => {
     _prevLineIdx = info.idx;
     _prevLineStart = info.lineStart;
     _prevLineEnd = info.lineEnd;
+    if (State.settings.blockCursor) {
+      _prevCursorLineIdx = info.idx;
+      _prevCursorLineStart = info.lineStart;
+      _prevCursorLineEnd = info.lineEnd;
+    } else {
+      _prevCursorLineIdx = -1;
+    }
     scheduleSyncGutter();
   }
 
@@ -312,7 +389,6 @@ const Editor = (() => {
     if (_prevText === null || _prevLineIdx < 0) return false;
     if (!document.getElementById('search-bar').hidden) return false;
     if (_typewriter) return false;
-    if (State.settings.blockCursor) return false;
 
     const text = ta().value;
     const pos  = ta().selectionStart;
@@ -327,13 +403,55 @@ const Editor = (() => {
     if (!lineEl) return false;
 
     const s = State.settings;
-    lineEl.innerHTML = _renderLine(text.slice(lineStart, lineEnd), s, escRx(s.headingMarker), escRx(s.commentMarker), _buildMarkupRules(s), false);
+    let lineHtml = _renderLine(text.slice(lineStart, lineEnd), s, escRx(s.headingMarker), escRx(s.commentMarker), _buildMarkupRules(s), false);
+    // Typing always edits at the cursor, which (per the invariant maintained by
+    // rehighlight()/syncBlockCursor()) is already on this same line — so the
+    // cursor span only ever needs to move WITHIN this line, never to another.
+    if (s.blockCursor) {
+      lineHtml = injectCursorAt(lineHtml, pos - lineStart);
+      _prevCursorLineIdx = _prevLineIdx;
+      _prevCursorLineStart = lineStart;
+      _prevCursorLineEnd = lineEnd;
+    }
+    lineEl.innerHTML = lineHtml;
     _prevText = text;
     _prevLineStart = lineStart;
     _prevLineEnd = lineEnd;
     // _prevLineIdx unchanged — same line, no newlines shifted before it
     scheduleSyncGutter();
     return true;
+  }
+
+  // Moves the <span class="hl-cursor"> to the line under the cursor by
+  // re-rendering only the old and new cursor lines — avoids a full
+  // rehighlight() (rebuilding all <span class="hl-line"> via innerHTML, very
+  // costly on large documents in Firefox) on every click/arrow-key when block
+  // cursor is enabled. Reads line text from `text` (the source), not from the
+  // DOM, since a line previously holding an end-of-line cursor has a synthetic
+  // trailing space appended to its rendered HTML (see injectCursorAt).
+  function syncBlockCursor() {
+    if (!State.settings.blockCursor || !State.doc) return;
+    const text = ta().value;
+    const pos  = ta().selectionStart;
+    const info = _lineInfoAt(text, pos);
+    const col  = pos - info.lineStart;
+
+    if (info.idx !== _prevCursorLineIdx && _prevCursorLineIdx >= 0) {
+      _patchCursorLine(_prevCursorLineIdx, text.slice(_prevCursorLineStart, _prevCursorLineEnd), undefined);
+    }
+    _patchCursorLine(info.idx, text.slice(info.lineStart, info.lineEnd), col);
+    _prevCursorLineIdx = info.idx;
+    _prevCursorLineStart = info.lineStart;
+    _prevCursorLineEnd = info.lineEnd;
+  }
+
+  function _patchCursorLine(idx, lineText, cursorCol) {
+    const lineEl = pre().children[idx];
+    if (!lineEl) return;
+    const s = State.settings;
+    let html = _renderLine(lineText, s, escRx(s.headingMarker), escRx(s.commentMarker), _buildMarkupRules(s), false);
+    if (cursorCol !== undefined) html = injectCursorAt(html, cursorCol);
+    lineEl.innerHTML = html;
   }
 
   function syncGutter() {
@@ -380,26 +498,17 @@ const Editor = (() => {
     _typewriter = !_typewriter;
     document.getElementById('editor').classList.toggle('typewriter', _typewriter);
     setMsg(_typewriter ? 'Typewriter mode on' : 'Typewriter mode off');
-    _twCache = { lineIdx: -1, top: 0 };
     if (_typewriter) typewriterScroll();
   }
 
-  // linePixelTop() builds a hidden mirror <div> containing every line BEFORE lineIdx
-  // and measures its layout height — on a 90K-word doc with the cursor mid-document
-  // that's hundreds of KB of text laid out on EVERY keystroke (~400ms). But typing
-  // within the current line never changes the height of the lines before it, so the
-  // result is loop-invariant w.r.t. lineIdx — cache it and only recompute when the
-  // cursor actually moves to a different line.
-  let _twCache = { lineIdx: -1, top: 0 };
+  function isTypewriter() { return _typewriter; }
+
   function typewriterScroll() {
     if (!_typewriter) return;
     const input   = ta();
     const lineIdx = input.value.substring(0, input.selectionStart).split('\n').length - 1;
     const lh      = parseFloat(getComputedStyle(input).lineHeight) || 20;
-    if (_twCache.lineIdx !== lineIdx) {
-      _twCache = { lineIdx, top: linePixelTop(input, lineIdx) };
-    }
-    input.scrollTop = Math.max(0, _twCache.top - input.clientHeight / 2 + lh / 2);
+    input.scrollTop = Math.max(0, linePixelTop(lineIdx) - input.clientHeight / 2 + lh / 2);
   }
 
   // ── Line numbers ──────────────────────────────────────────────────────────
@@ -458,7 +567,7 @@ const Editor = (() => {
     for (let i = 0; i < lineIdx; i++) offset += lines[i].length + 1;
     input.focus();
     input.setSelectionRange(offset, offset);
-    input.scrollTop = Math.max(0, linePixelTop(input, lineIdx) - input.clientHeight / 3);
+    input.scrollTop = Math.max(0, linePixelTop(lineIdx) - input.clientHeight / 3);
   }
 
   function gotoLineClose() {
@@ -466,19 +575,13 @@ const Editor = (() => {
     ta().focus();
   }
 
-  function linePixelTop(input, lineIdx) {
-    const cs = getComputedStyle(input);
-    const m  = document.createElement('div');
-    m.style.cssText = `position:fixed;top:-9999px;left:-9999px;visibility:hidden;`
-      + `white-space:pre-wrap;overflow-wrap:break-word;word-break:break-word;`
-      + `font-family:${cs.fontFamily};font-size:${cs.fontSize};line-height:${cs.lineHeight};`
-      + `padding:${cs.paddingTop} ${cs.paddingRight} 0 ${cs.paddingLeft};`
-      + `width:${input.clientWidth}px;box-sizing:border-box`;
-    m.textContent = input.value.split('\n').slice(0, lineIdx).join('\n') + (lineIdx > 0 ? '\n' : '');
-    document.body.appendChild(m);
-    const top = m.offsetHeight;
-    document.body.removeChild(m);
-    return top;
+  // The `.hl-line` spans in #ed-highlight share the textarea's exact font/padding/
+  // line-height (CSS-enforced) and are kept in sync with its content, so a line's
+  // already-computed offsetTop gives its scroll position directly — no extra layout.
+  function linePixelTop(lineIdx) {
+    const pre = document.getElementById('ed-highlight');
+    const padTop = parseFloat(getComputedStyle(pre).paddingTop) || 0;
+    return pre.children[lineIdx].offsetTop + padTop;
   }
 
   // ── Markup helpers ────────────────────────────────────────────────────────
@@ -805,7 +908,7 @@ const Editor = (() => {
     const lineIdx = input.value.slice(0, pos).split('\n').length - 1;
     // Ne pas appeler input.focus() : cela volerait le focus depuis le champ de recherche
     input.setSelectionRange(pos, pos + _searchTerm.length);
-    input.scrollTop = Math.max(0, linePixelTop(input, lineIdx) - input.clientHeight / 3);
+    input.scrollTop = Math.max(0, linePixelTop(lineIdx) - input.clientHeight / 3);
     syncScroll();
   }
 
@@ -845,10 +948,10 @@ const Editor = (() => {
   }
 
   return {
-    open, close, save, onInput, syncScroll, syncGutter, rehighlight, updateStatusBar, setMsg,
-    syncCursorLineCache,
+    open, close, save, saveAs, onInput, syncScroll, syncGutter, rehighlight, updateStatusBar, setMsg,
+    syncCursorLineCache, syncBlockCursor,
     saveCursorPos, applyLineNumbers,
-    toggleTypewriter, typewriterScroll, toggleLineNumbers, gotoLine, gotoLineGo, gotoLineClose,
+    toggleTypewriter, isTypewriter, typewriterScroll, toggleLineNumbers, gotoLine, gotoLineGo, gotoLineClose,
     applyLineMarker, applyInlineMarker, applyHeading,
     enterCmdMode, exitCmdMode, isCmdMode, cmdNavMove, getCmdNavKey,
     searchOpen, searchClose, searchUpdate, searchNext, searchPrev, replaceOne, replaceAll,

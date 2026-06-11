@@ -15,18 +15,37 @@ const TOC = (() => {
     if (btn) btn.classList.toggle('active', visible);
   }
 
+  function _setPinned(val) {
+    _pinned = val;
+    const pinBtn = document.getElementById('toc-pin-btn');
+    if (pinBtn) {
+      pinBtn.classList.toggle('active', _pinned);
+      pinBtn.title = _pinned
+        ? 'Unpin TOC (closes when selecting a chapter)'
+        : 'Pin TOC (stays open when selecting a chapter)';
+    }
+  }
+
   function _wire() {
     if (_wired) return;
     _wired = true;
     const pinBtn = document.getElementById('toc-pin-btn');
     if (!pinBtn) return;
-    pinBtn.addEventListener('click', () => {
-      _pinned = !_pinned;
-      pinBtn.classList.toggle('active', _pinned);
-      pinBtn.title = _pinned
-        ? 'Unpin TOC (closes when selecting a chapter)'
-        : 'Pin TOC (stays open when selecting a chapter)';
-    });
+    pinBtn.addEventListener('click', () => togglePin());
+  }
+
+  // Keyboard equivalent of clicking the pin button (Shift+Ctrl+F11, mirrors
+  // Tcl's cfg_key_toc_pinned). Also opens the panel when pinning it while closed —
+  // pinning a hidden panel would otherwise have no visible effect.
+  function togglePin() {
+    _wire();
+    _setPinned(!_pinned);
+    if (_pinned && !_visible) {
+      _visible = true;
+      _show(true);
+      render();
+      focusPanel();
+    }
   }
 
   function parse(text, s) {
@@ -57,19 +76,13 @@ const TOC = (() => {
     return text.split('\n').slice(0, lineIdx).reduce((s, l) => s + l.length + 1, 0);
   }
 
-  function linePixelTop(ta, lineIdx) {
-    const cs = getComputedStyle(ta);
-    const m  = document.createElement('div');
-    m.style.cssText = `position:fixed;top:-9999px;left:-9999px;visibility:hidden;`
-      + `white-space:pre-wrap;overflow-wrap:break-word;word-break:break-word;`
-      + `font-family:${cs.fontFamily};font-size:${cs.fontSize};line-height:${cs.lineHeight};`
-      + `padding:${cs.paddingTop} ${cs.paddingRight} 0 ${cs.paddingLeft};`
-      + `width:${ta.clientWidth}px;box-sizing:border-box`;
-    m.textContent = ta.value.split('\n').slice(0, lineIdx).join('\n') + (lineIdx > 0 ? '\n' : '');
-    document.body.appendChild(m);
-    const top = m.offsetHeight;
-    document.body.removeChild(m);
-    return top;
+  // The `.hl-line` spans in #ed-highlight share the textarea's exact font/padding/
+  // line-height (CSS-enforced) and are kept in sync with its content, so a line's
+  // already-computed offsetTop gives its scroll position directly — no extra layout.
+  function linePixelTop(lineIdx) {
+    const pre = document.getElementById('ed-highlight');
+    const padTop = parseFloat(getComputedStyle(pre).paddingTop) || 0;
+    return pre.children[lineIdx].offsetTop + padTop;
   }
 
   function _items() {
@@ -99,7 +112,7 @@ const TOC = (() => {
     const offset = lineToOffset(ta.value, lineIdx);
     ta.focus();
     ta.setSelectionRange(offset, offset);
-    ta.scrollTop = Math.max(0, linePixelTop(ta, lineIdx) - ta.clientHeight / 3);
+    ta.scrollTop = Math.max(0, linePixelTop(lineIdx) - ta.clientHeight / 3);
     if (!_pinned) {
       _visible = false;
       _show(false);
@@ -159,7 +172,7 @@ const TOC = (() => {
   function refresh() { if (_visible) render(); }
 
   return {
-    toggle, hide, refresh, move, selectFocused, focusPanel,
+    toggle, hide, refresh, move, selectFocused, focusPanel, togglePin,
     isVisible: () => _visible,
     isPinned: () => _pinned,
     isFocused: () => {
