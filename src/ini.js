@@ -38,6 +38,8 @@ const INI_TO_SETTINGS = {
   intercept_browser_shortcuts:['interceptBrowserShortcuts', 'bool'],
   intercept_context_menu:     ['interceptContextMenu',      'bool'],
   open_last_doc:              ['openLastDoc',               'bool'],
+  browser_filter:             ['browserFilter',             'str'],
+  browser_show_all:           ['browserShowAll',            'bool'],
 };
 
 const SETTINGS_TO_INI = Object.fromEntries(
@@ -179,6 +181,10 @@ function writeIni(s, allSchemes) {
   out += `block_cursor                 = ${b(s.blockCursor)}` + nl;
   out += `blink_cursor                 = ${b(s.blinkCursor)}` + nl;
   out += `dark_mode       = ${b(s.darkMode)}` + nl;
+  out += `% browser_filter: space-separated glob patterns (* ? [...]) for the browser file list` + nl;
+  out += `browser_filter  = ${s.browserFilter ?? '*.txt *.t2t *.md *.ini'}` + nl;
+  out += `% browser_show_all: bypass browser_filter and show all files` + nl;
+  out += `browser_show_all = ${b(s.browserShowAll)}` + nl;
   out += nl;
 
   out += '= web =' + nl + '[web]' + nl;

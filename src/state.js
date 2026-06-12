@@ -46,7 +46,9 @@ const State = {
     blockCursor: false,
     blinkCursor: false,
     interceptBrowserShortcuts: true,
-    interceptContextMenu: true
+    interceptContextMenu: true,
+    browserFilter: '*.txt *.t2t *.md *.ini',
+    browserShowAll: false
   },
 
   favorites: [],  // [id, ...]
@@ -130,6 +132,35 @@ async function clearDirHandle() {
   await DB.setMeta('dirHandle', null);
 }
 
+// ── Browser file filter ───────────────────────────────────────────────────
+// Mirrors the Tcl desktop's `list-docs` filtering: an empty filter or
+// browserShowAll=true shows everything; otherwise glob-match (case-insensitive,
+// `*`/`?`/`[...]`) against each space-separated pattern.
+
+function globToRegex(pattern) {
+  let re = '';
+  for (let i = 0; i < pattern.length; i++) {
+    const c = pattern[i];
+    if (c === '*') re += '.*';
+    else if (c === '?') re += '.';
+    else if (c === '[') {
+      const close = pattern.indexOf(']', i + 1);
+      if (close < 0) re += '\\[';
+      else { re += '[' + pattern.slice(i + 1, close) + ']'; i = close; }
+    }
+    else if ('.+^${}()|\\'.includes(c)) re += '\\' + c;
+    else re += c;
+  }
+  return new RegExp('^' + re + '$', 'i');
+}
+
+function matchesBrowserFilter(name) {
+  if (State.settings.browserShowAll) return true;
+  const patterns = (State.settings.browserFilter || '').trim().split(/\s+/).filter(Boolean);
+  if (patterns.length === 0) return true;
+  return patterns.some(pat => globToRegex(pat).test(name));
+}
+
 // ── Watched folder ────────────────────────────────────────────────────────
 
 async function scanDir() {
@@ -138,7 +169,7 @@ async function scanDir() {
   try {
     for await (const [name, handle] of State.dirHandle.entries()) {
       if (handle.kind !== 'file') continue;
-      if (!/\.(txt|md|tcl|text)$/i.test(name)) continue;
+      if (!matchesBrowserFilter(name)) continue;
       const file = await handle.getFile();
       files.push({
         id: `dir:${name}`, name, content: null,
