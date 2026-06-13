@@ -588,6 +588,10 @@ const Editor = (() => {
 
   function applyLineMarker(marker) {
     if (!marker) return;
+    // Always separate the marker from the line's content with exactly one
+    // space (e.g. "% comment"), regardless of whether the configured marker
+    // itself already ends with whitespace (e.g. "%" or "% ").
+    const trimmed = marker.replace(/\s+$/, '');
     const input = ta();
     const s = input.selectionStart, e = input.selectionEnd;
     const text = input.value;
@@ -595,8 +599,13 @@ const Editor = (() => {
     const raw = text.indexOf('\n', e);
     const blockEnd = raw === -1 ? text.length : raw;
     const lines = text.slice(blockStart, blockEnd).split('\n');
-    const allMarked = lines.every(l => l.startsWith(marker));
-    const newLines = allMarked ? lines.map(l => l.slice(marker.length)) : lines.map(l => marker + l);
+    const allMarked = lines.every(l => l.startsWith(trimmed));
+    const newLines = allMarked
+      ? lines.map(l => {
+          const rest = l.slice(trimmed.length);
+          return rest.startsWith(' ') ? rest.slice(1) : rest;
+        })
+      : lines.map(l => l === '' ? trimmed : trimmed + ' ' + l);
     const newBlock = newLines.join('\n');
     input.focus();
     input.setSelectionRange(blockStart, blockEnd);
