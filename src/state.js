@@ -14,6 +14,11 @@ const State = {
   // Cached INI text — the canonical settings format in IDB
   iniText: '',
 
+  // Per-profile overrides (12-key aligned set — see ini.js PROFILE_JS_KEYS)
+  profiles: {},        // {name: {jsKey: value, ...}}
+  activeProfile: 'default',
+  profileNames: [],
+
   // Settings defaults (overwritten from IDB on load)
   settings: {
     scheme: 'default',
@@ -74,7 +79,7 @@ async function loadState() {
 
   if (iniText) {
     // Normal path — INI is the source of truth
-    const { settings, schemes } = INI.parseIni(iniText);
+    const { settings, schemes, profiles, activeProfile } = INI.parseIni(iniText);
     Object.assign(State.settings, settings);
     // Only load non-built-in schemes: built-in colors come from code, not IDB
     for (const [n, sc] of Object.entries(schemes)) {
@@ -82,16 +87,20 @@ async function loadState() {
     }
     State.customSchemes = { ...customSchemes };
     State.iniText = iniText;
+    applyParsedProfiles(profiles, activeProfile);
   } else if (oldSettings) {
     // One-time migration from legacy JSON format
     Object.assign(State.settings, oldSettings);
     if (oldCs) Object.assign(customSchemes, oldCs);
     State.customSchemes = { ...customSchemes };
+    seedProfilesIfMissing();
     await saveSettings();             // re-persist as INI
     await DB.setMeta('settings', null);
     await DB.setMeta('customSchemes', null);
   }
   // else: first run — defaults are in place, INI saved after init by app.js
+
+  seedProfilesIfMissing();
 
   if (favorites) State.favorites = favorites;
   if (recents)   State.recents   = recents;
@@ -102,11 +111,47 @@ async function loadState() {
   State.docs = await DB.getAllDocs();
 }
 
+// ── Profiles ──────────────────────────────────────────────────────────────
+
+// Adopts profiles parsed from an INI file (no-op if the file had none),
+// merging the active profile's overrides onto State.settings.
+function applyParsedProfiles(profiles, activeProfile) {
+  if (Object.keys(profiles).length === 0) return;
+  State.profiles = profiles;
+  State.activeProfile = profiles[activeProfile] ? activeProfile : Object.keys(profiles)[0];
+  State.profileNames = Object.keys(profiles);
+  Object.assign(State.settings, State.profiles[State.activeProfile] || {});
+}
+
+// First-run / older-INI fallback: seed `default` (snapshot of current
+// settings, lossless) plus a `novel` profile, mirroring the Android/Tcl
+// "two starter profiles" set.
+function seedProfilesIfMissing() {
+  if (Object.keys(State.profiles).length > 0) {
+    State.profileNames = Object.keys(State.profiles);
+    return;
+  }
+  const extract = () => Object.fromEntries(INI.PROFILE_JS_KEYS.map(k => [k, State.settings[k]]));
+  const novel = extract();
+  novel.scheme           = 'everforest';
+  novel.marginX          = State.settings.marginX * 2;
+  novel.marginY          = Math.round(State.settings.marginY * 1.5);
+  novel.wordGoal         = 1000;
+  novel.fontSize         = State.settings.fontSize + 2;
+  novel.fontFamily       = 'serif';
+  novel.lineSpacing      = Math.round(State.settings.lineSpacing * 1.2 * 10) / 10;
+  novel.markdownHeadings = false;
+
+  State.profiles = { default: extract(), novel };
+  State.activeProfile = 'default';
+  State.profileNames = Object.keys(State.profiles);
+}
+
 // ── Settings — INI is canonical ───────────────────────────────────────────
 
 async function saveSettings() {
   const allSchemes = { ...SCHEMES, ...customSchemes };
-  const text = INI.writeIni(State.settings, allSchemes);
+  const text = INI.writeIni(State.settings, allSchemes, State.profiles, State.activeProfile);
   State.iniText = text;
   await DB.setMeta('iniText', text);
 }

@@ -33,6 +33,18 @@ const Settings = (() => {
   function populate() {
     const s = State.settings;
 
+    // Profile selector
+    const profSel = document.getElementById('profile-select');
+    if (profSel) {
+      profSel.innerHTML = '';
+      State.profileNames.forEach(name => {
+        const opt = document.createElement('option');
+        opt.value = opt.textContent = name;
+        if (name === State.activeProfile) opt.selected = true;
+        profSel.appendChild(opt);
+      });
+    }
+
     // Fill all data-key inputs (Profile, Timer, Misc, Display tabs)
     document.querySelectorAll('#settings-dlg [data-key]').forEach(el => {
       const key = el.dataset.key;
@@ -155,13 +167,63 @@ const Settings = (() => {
       saveCustomSchemes();
     }
 
+    // Persist the 12 profile-scoped settings into the active profile
+    if (!State.profiles[State.activeProfile]) State.profiles[State.activeProfile] = {};
+    for (const k of INI.PROFILE_JS_KEYS) State.profiles[State.activeProfile][k] = s[k];
+
     saveSettings();
+    refreshAfterSettingsChange();
+  }
+
+  function refreshAfterSettingsChange() {
     applyTheme();
     if (State.doc) {
       Editor.rehighlight();
       Editor.applyLineNumbers();
       Editor.updateStatusBar();
     }
+  }
+
+  // ── Profile actions ───────────────────────────────────────────────────────
+
+  function switchProfile(name) {
+    if (name === State.activeProfile) return;
+    apply(); // commit current edits into the active profile + persist
+
+    State.activeProfile = name;
+    Object.assign(State.settings, State.profiles[name] || {});
+    saveSettings();
+    populate();
+    refreshAfterSettingsChange();
+  }
+
+  function newProfile() {
+    const name = prompt('New profile name:');
+    if (!name || !name.trim()) return;
+    const trimmed = name.trim();
+    if (/[[\]]/.test(trimmed)) { alert('Profile names cannot contain [ or ].'); return; }
+    if (State.profiles[trimmed]) { alert('A profile with this name already exists.'); return; }
+    apply(); // commit current edits first
+
+    State.profiles[trimmed] = Object.fromEntries(INI.PROFILE_JS_KEYS.map(k => [k, State.settings[k]]));
+    State.profileNames.push(trimmed);
+    State.activeProfile = trimmed;
+    saveSettings();
+    populate();
+    refreshAfterSettingsChange();
+  }
+
+  function deleteProfile() {
+    if (State.profileNames.length <= 1) { alert('Cannot delete the only profile.'); return; }
+    const name = State.activeProfile;
+    if (!confirm(`Delete profile "${name}"?`)) return;
+    delete State.profiles[name];
+    State.profileNames = Object.keys(State.profiles);
+    State.activeProfile = State.profileNames[0];
+    Object.assign(State.settings, State.profiles[State.activeProfile] || {});
+    saveSettings();
+    populate();
+    refreshAfterSettingsChange();
   }
 
   // ── Tab switching ─────────────────────────────────────────────────────────
@@ -181,6 +243,7 @@ const Settings = (() => {
     const name = prompt('New scheme name:');
     if (!name || !name.trim()) return;
     const trimmed = name.trim();
+    if (/[[\]]/.test(trimmed)) { alert('Scheme names cannot contain [ or ].'); return; }
     if (getAllSchemeNames().includes(trimmed)) { alert('Name already exists.'); return; }
     customSchemes[trimmed] = { ...getScheme(State.settings.scheme) };
     saveCustomSchemes();
@@ -205,11 +268,12 @@ const Settings = (() => {
   // ── INI import / export ───────────────────────────────────────────────────
 
   async function importIni(text) {
-    const { settings, schemes } = INI.parseIni(text);
+    const { settings, schemes, profiles, activeProfile } = INI.parseIni(text);
     Object.assign(State.settings, settings);
     for (const [n, sc] of Object.entries(schemes)) {
       customSchemes[n] = SCHEMES[n] ? { ...SCHEMES[n], ...sc } : sc;
     }
+    applyParsedProfiles(profiles, activeProfile);
     await saveSettings();   // re-generates INI text + stores in IDB
     applyTheme();
     populate();
@@ -219,7 +283,7 @@ const Settings = (() => {
 
   function exportIni() {
     // State.iniText is always kept in sync with IDB — no need to regenerate
-    const text = State.iniText || INI.writeIni(State.settings, { ...SCHEMES, ...customSchemes });
+    const text = State.iniText || INI.writeIni(State.settings, { ...SCHEMES, ...customSchemes }, State.profiles, State.activeProfile);
     const blob = new Blob([text], { type: 'text/plain' });
     const a = Object.assign(document.createElement('a'), {
       href: URL.createObjectURL(blob),
@@ -354,6 +418,13 @@ const Settings = (() => {
     document.querySelectorAll('.stab').forEach(btn => {
       btn.addEventListener('click', () => switchTab(btn.dataset.tab));
     });
+
+    // Profile selector
+    document.getElementById('profile-select').addEventListener('change', e => {
+      switchProfile(e.target.value);
+    });
+    document.getElementById('profile-new-btn').addEventListener('click', newProfile);
+    document.getElementById('profile-delete-btn').addEventListener('click', deleteProfile);
 
     // Scheme selector in Schemes tab → rebuild color grid
     document.getElementById('scheme-select').addEventListener('change', e => {

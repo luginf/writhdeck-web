@@ -578,11 +578,12 @@ async function init() {
         if (State.dirIniHandle) {
           try {
             const f = await State.dirIniHandle.getFile();
-            const { settings, schemes } = INI.parseIni(await f.text());
+            const { settings, schemes, profiles, activeProfile } = INI.parseIni(await f.text());
             Object.assign(State.settings, settings);
             for (const [n, sc] of Object.entries(schemes)) {
               if (!SCHEMES[n]) customSchemes[n] = sc;
             }
+            applyParsedProfiles(profiles, activeProfile);
             await saveSettings();
             applyTheme(); // re-appliquer après maj des settings depuis le dossier
           } catch (_) {}

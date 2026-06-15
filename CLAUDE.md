@@ -46,6 +46,8 @@ Two object stores:
 
 Settings are persisted as an INI text string (`meta['iniText']`) via `saveSettings()`. `loadState()` reads and parses this on startup. The INI format is compatible with the Tcl/Tk desktop version.
 
+**Per-profile settings** (`[profiles]` section): `State.profiles` (`{name: {...}}`), `State.activeProfile`, `State.profileNames`. The 12 keys in `INI.PROFILE_JS_KEYS` (`scheme`, `headingMarker`, `markdownHeadings`, `marginX`, `marginY`, `wordGoal`, `fontSize`, `fontFamily`, `lineSpacing`, `lineNumbers`, `darkMode`, `blockCursor` — aligned with the Tcl/Android profile key set) live per-profile, not in `State.settings`'s global `[editor]`/`[behaviour]` output. `applyParsedProfiles(profiles, activeProfile)` (in `state.js`) adopts parsed profiles and merges the active profile's overrides onto `State.settings`; call it after any `parseIni()`. `seedProfilesIfMissing()` creates `default`+`novel` on first run / when loading an INI without `[profiles]`. The Profile tab's `#profile-select` + new/delete buttons (`settings.js`: `switchProfile`/`newProfile`/`deleteProfile`) call `apply()` first to commit pending edits to the active profile before switching.
+
 **Reset to defaults**: the Settings dialog footer has a "Reset to defaults" button that clears `meta['iniText']` from IndexedDB and reloads — equivalent to deleting `writhdeck.ini`.
 
 **INI parser note** (`ini.js`): `stripComment()` strips leading whitespace only (not trailing), so marker values with intentional trailing spaces (e.g. `comment_marker = % `) round-trip correctly. Default `commentMarker` is `'% '` (percent + space).

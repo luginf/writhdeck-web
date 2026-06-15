@@ -161,13 +161,20 @@
 
     <!-- Profile tab -->
     <div class="stab-content active" data-tab="profile">
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+        <label>Profile <select id="profile-select"></select></label>
+        <button id="profile-new-btn">New</button>
+        <button id="profile-delete-btn">Delete</button>
+      </div>
+      <p class="hint">Margins, fonts, scheme, dark mode, word goal, line numbers, block cursor,
+        heading marker and markdown headings are saved per profile.</p>
       <label>Default scheme
         <select data-key="scheme" id="scheme-select-profile"></select>
       </label>
       <label><input type="checkbox" data-key="darkMode"> Dark mode</label>
       <label>Margin horiz (px)<input type="number" data-key="marginX" min="0" max="400"></label>
       <label>Margin vert (px)<input type="number" data-key="marginY" min="0" max="400"></label>
-      <label>Line spacing (%)<input type="number" data-key="lineSpacing" min="80" max="250"></label>
+      <label>Line spacing<input type="number" data-key="lineSpacing" min="0.8" max="3.0" step="0.1"></label>
       <label>Word goal (words/day, 0=off)<input type="number" data-key="wordGoal" min="0"></label>
       <label><input type="checkbox" data-key="hemingwayMode"> Hemingway mode (no delete)</label>
     </div>

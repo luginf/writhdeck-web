@@ -2,6 +2,11 @@
 
 A distraction-free writing app that runs as a single self-contained HTML file — no server, no install, no internet required. Open `writhdeck.html` directly in any modern browser.
 
+
+- [Try it online!](https://luginf.github.io/writhdeck/)
+- [Main project](https://github.com/luginf/writhdeck/)
+
+
 ## Features
 
 - **Single-file**: the entire app is one `writhdeck.html` (~180 KB). Copy it anywhere, it just works.

@@ -49,6 +49,15 @@ const SETTINGS_TO_INI = Object.fromEntries(
 SETTINGS_TO_INI['commentMarker']  = 'comment_marker';
 SETTINGS_TO_INI['fontFamily']     = 'font_family';
 
+// Per-profile settings — aligned with the Tcl/Android "profile" key set.
+const PROFILE_KEYS = [
+  'scheme', 'heading_marker', 'markdown_headings',
+  'margin_width', 'margin_height', 'word_goal',
+  'font_size', 'font_family', 'line_spacing',
+  'line_numbers', 'dark_mode', 'block_cursor'
+];
+const PROFILE_JS_KEYS = PROFILE_KEYS.map(k => INI_TO_SETTINGS[k][0]);
+
 // Scheme color key mapping (INI ↔ JS)
 const SCHEME_INI_TO_JS = {
   color_bg:          'bg',         color_fg:          'fg',
@@ -79,6 +88,28 @@ function parseBool(v) {
   return /^(yes|1|true|on)$/i.test(String(v).trim());
 }
 
+function coerceValue(type, val) {
+  if (type === 'bool')   return parseBool(val);
+  if (type === 'int')    return parseInt(val, 10);
+  if (type === 'float')  return parseFloat(val);
+  return val;
+}
+
+// `line_spacing` uses incompatible units across versions: the Tcl desktop stores a
+// percentage (100 = normal line height; extra_px = lineHeight*(v-100)/100), while web
+// and Android store a CSS line-height / setLineSpacing multiplier (default 1.5). The two
+// conventions differ by a factor of 100. INI values >= 10 are assumed to use the
+// percentage convention (Tcl, or an already-migrated web/Android file) and are divided
+// by 100; smaller values are pre-conversion web/Android files and used as-is.
+// writeIni() always emits the percentage convention going forward, so a stale value
+// self-heals on the next save.
+function lineSpacingFromIni(raw) {
+  return raw >= 10 ? raw / 100 : raw;
+}
+function lineSpacingToIni(value) {
+  return Math.round(value * 100);
+}
+
 // Strips inline comments (# preceded by whitespace). % is line-start-only.
 // Leading whitespace trimmed; trailing preserved so '% ' marker round-trips correctly.
 function stripComment(v) {
@@ -89,6 +120,8 @@ function stripComment(v) {
 function parseIni(text) {
   const settings = {};
   const schemes  = {};   // {name: {jsKey: value}}
+  const profiles = {};   // {name: {jsKey: value}} — per-profile overrides
+  let activeProfile = 'default';
 
   let section    = '';
   let curScheme  = '';
@@ -100,7 +133,7 @@ function parseIni(text) {
     if (!line || line.startsWith('#') || line.startsWith('%')) continue;
 
     // Section header [name]
-    const secMatch = line.match(/^\[(\w[\w\s]*)\]$/);
+    const secMatch = line.match(/^\[([^[\]]+)\]$/);
     if (secMatch) {
       const hdr = secMatch[1].trim();
       if (hdr === 'schemes') {
@@ -111,6 +144,7 @@ function parseIni(text) {
         curScheme = hdr;
       } else if (section === 'profiles' && !TOPLEVEL.has(hdr)) {
         curProfile = hdr;
+        if (!profiles[curProfile]) profiles[curProfile] = {};
       } else {
         section = hdr; curScheme = ''; curProfile = '';
       }
@@ -130,8 +164,17 @@ function parseIni(text) {
         if (!schemes[curScheme]) schemes[curScheme] = {};
         schemes[curScheme][jsKey] = val;
       }
-    } else if (!curProfile) {
+    } else if (curProfile) {
+      // Per-profile override (12-key aligned set)
+      if (PROFILE_KEYS.includes(key)) {
+        const [jsKey, type] = INI_TO_SETTINGS[key];
+        let v = coerceValue(type, val);
+        if (key === 'line_spacing') v = lineSpacingFromIni(v);
+        profiles[curProfile][jsKey] = v;
+      }
+    } else {
       // Global setting
+      if (key === 'profile') { activeProfile = val.trim(); continue; }
       const mapping = INI_TO_SETTINGS[key];
       if (mapping) {
         const [jsKey, type] = mapping;
@@ -139,6 +182,9 @@ function parseIni(text) {
         else if (type === 'int')    settings[jsKey] = parseInt(val, 10)  || undefined;
         else if (type === 'float')  settings[jsKey] = parseFloat(val)    || undefined;
         else                        settings[jsKey] = val;
+        if (key === 'line_spacing' && settings[jsKey] !== undefined) {
+          settings[jsKey] = lineSpacingFromIni(settings[jsKey]);
+        }
       }
     }
   }
@@ -146,11 +192,11 @@ function parseIni(text) {
   // Remove undefined values
   Object.keys(settings).forEach(k => settings[k] === undefined && delete settings[k]);
 
-  return { settings, schemes };
+  return { settings, schemes, profiles, activeProfile };
 }
 
 // ── Writer ────────────────────────────────────────────────────────────────
-function writeIni(s, allSchemes) {
+function writeIni(s, allSchemes, profiles, activeProfile) {
   const b = (v) => v ? 'yes' : 'no';
   const nl = '\n';
 
@@ -158,29 +204,18 @@ function writeIni(s, allSchemes) {
   out += '% https://github.com/luginf/writhdeck' + nl + nl;
 
   out += '= editor =' + nl + '[editor]' + nl;
-  out += `scheme         = ${s.scheme || 'default'}` + nl;
-  if (s.fontFamily)    out += `font_family    = ${s.fontFamily}` + nl;
-  if (s.fontSize)      out += `font_size      = ${s.fontSize}` + nl;
-  out += `margin_width   = ${s.marginX   || 60}` + nl;
-  out += `margin_height  = ${s.marginY   || 40}` + nl;
-  out += `line_spacing   = ${s.lineSpacing || 100}` + nl;
-  out += `word_goal      = ${s.wordGoal  || 0}` + nl;
-  out += `heading_marker       = ${s.headingMarker   || '='}` + nl;
+  out += `profile              = ${activeProfile || 'default'}` + nl;
   out += `comment_marker       = ${s.commentMarker   || '% '}` + nl;
   out += `bold_marker          = ${s.boldMarker      || '**'}` + nl;
   out += `italic_marker        = ${s.italicMarker    || '//'}` + nl;
   out += `underline_marker     = ${s.underlineMarker || '__'}` + nl;
   out += `strikethrough_marker = ${s.strikeMarker    || '--'}` + nl;
-  out += `markdown_headings    = ${b(s.markdownHeadings !== false)}` + nl;
   out += nl;
 
   out += '= behaviour =' + nl + '[behaviour]' + nl;
   out += `hemingway_mode  = ${b(s.hemingwayMode)}` + nl;
   out += `cursor_restore               = ${b(s.cursorRestore !== false)}` + nl;
-  out += `line_numbers                 = ${b(s.lineNumbers)}` + nl;
-  out += `block_cursor                 = ${b(s.blockCursor)}` + nl;
   out += `blink_cursor                 = ${b(s.blinkCursor)}` + nl;
-  out += `dark_mode       = ${b(s.darkMode)}` + nl;
   out += `% browser_filter: space-separated glob patterns (* ? [...]) for the browser file list` + nl;
   out += `browser_filter  = ${s.browserFilter ?? '*.txt *.t2t *.md *.ini'}` + nl;
   out += `% browser_show_all: bypass browser_filter and show all files` + nl;
@@ -208,6 +243,25 @@ function writeIni(s, allSchemes) {
   out += `status_right   = ${s.statusRight  || ''}` + nl;
   out += nl;
 
+  out += '= profiles =' + nl + '[profiles]' + nl;
+  for (const [name, p] of Object.entries(profiles || {})) {
+    const pv = (jsKey, dflt) => p[jsKey] !== undefined ? p[jsKey] : (s[jsKey] !== undefined ? s[jsKey] : dflt);
+    out += `[${name}]` + nl;
+    out += `scheme            = ${pv('scheme', 'default')}` + nl;
+    out += `dark_mode         = ${b(pv('darkMode', true))}` + nl;
+    out += `margin_width      = ${pv('marginX', 60)}` + nl;
+    out += `margin_height     = ${pv('marginY', 40)}` + nl;
+    out += `font_size         = ${pv('fontSize', 18)}` + nl;
+    out += `font_family       = ${pv('fontFamily', 'monospace')}` + nl;
+    out += `line_spacing      = ${lineSpacingToIni(pv('lineSpacing', 1.5))}` + nl;
+    out += `word_goal         = ${pv('wordGoal', 0)}` + nl;
+    out += `line_numbers      = ${b(pv('lineNumbers', false))}` + nl;
+    out += `block_cursor      = ${b(pv('blockCursor', false))}` + nl;
+    out += `heading_marker    = ${pv('headingMarker', '=')}` + nl;
+    out += `markdown_headings = ${b(pv('markdownHeadings', true))}` + nl;
+    out += nl;
+  }
+
   out += '= schemes =' + nl + '[schemes]' + nl;
   out += '% colors in #rrggbb format' + nl + nl;
 
@@ -230,4 +284,4 @@ function writeIni(s, allSchemes) {
   return out;
 }
 
-const INI = { parseIni, writeIni };
+const INI = { parseIni, writeIni, PROFILE_JS_KEYS };

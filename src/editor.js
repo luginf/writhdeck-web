@@ -137,11 +137,12 @@ const Editor = (() => {
     // Virtual INI doc — parse and apply, don't write to docs store
     if (State.doc.isIni) {
       try {
-        const { settings, schemes } = INI.parseIni(State.doc.content);
+        const { settings, schemes, profiles, activeProfile } = INI.parseIni(State.doc.content);
         Object.assign(State.settings, settings);
         for (const [n, sc] of Object.entries(schemes)) {
           customSchemes[n] = SCHEMES[n] ? { ...SCHEMES[n], ...sc } : sc;
         }
+        applyParsedProfiles(profiles, activeProfile);
         await saveSettings();   // re-generates canonical INI text → IDB
         State.doc.content = State.iniText; // reflect normalised output
         ta().value = State.iniText;
