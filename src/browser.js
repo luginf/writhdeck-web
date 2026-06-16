@@ -200,18 +200,45 @@ const Browser = (() => {
   }
 
   async function newDoc() {
+    const inFolder = hasFSA && !!State.dirHandle;
     const name = prompt('Document name:', uniqueName('Untitled'));
     if (!name || !name.trim()) return;
     const trimmed = name.trim();
-    if (nameExists(trimmed)) {
-      alert(`A document named "${trimmed}" already exists.`);
-      return;
+    const safeName = trimmed.lastIndexOf('.') > 0 ? trimmed : `${trimmed}.txt`;
+
+    if (inFolder) {
+      if (State.dirFiles.some(f => f.name === safeName)) {
+        alert(`A file named "${safeName}" already exists in this folder.`);
+        return;
+      }
+      let fileHandle;
+      try {
+        fileHandle = await State.dirHandle.getFileHandle(safeName, { create: true });
+        const writable = await fileHandle.createWritable();
+        await writable.close();
+      } catch (e) {
+        alert(`Could not create "${safeName}": ${e.message}`);
+        return;
+      }
+      const doc = {
+        id: `dir:${safeName}`, name: safeName, content: '',
+        fileHandle, fromDisk: true, dirFile: true, modified: Date.now()
+      };
+      State.dirFiles.push(doc);
+      State.dirFiles.sort((a, b) => a.name.localeCompare(b.name));
+      render();
+      await Editor.open(doc);
+    } else {
+      if (nameExists(safeName)) {
+        alert(`A document named "${safeName}" already exists.`);
+        return;
+      }
+      const doc = { name: safeName, content: '', created: Date.now(), modified: Date.now() };
+      await DB.saveDoc(doc);
+      State.docs.push(doc);
+      render();
+      await Editor.open(doc);
     }
-    const doc = { name: trimmed, content: '', created: Date.now(), modified: Date.now() };
-    await DB.saveDoc(doc);
-    State.docs.push(doc);
-    render();
-    await Editor.open(doc);
   }
 
   async function renameDoc(doc) {
