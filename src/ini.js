@@ -40,6 +40,7 @@ const INI_TO_SETTINGS = {
   open_last_doc:              ['openLastDoc',               'bool'],
   browser_filter:             ['browserFilter',             'str'],
   browser_show_all:           ['browserShowAll',            'bool'],
+  browser_subdirs:            ['browserSubdirs',            'bool'],
 };
 
 const SETTINGS_TO_INI = Object.fromEntries(
@@ -220,6 +221,8 @@ function writeIni(s, allSchemes, profiles, activeProfile) {
   out += `browser_filter  = ${s.browserFilter ?? '*.txt *.t2t *.md *.ini'}` + nl;
   out += `% browser_show_all: bypass browser_filter and show all files` + nl;
   out += `browser_show_all = ${b(s.browserShowAll)}` + nl;
+  out += `% browser_subdirs: scan and browse subfolders inside the watched folder` + nl;
+  out += `browser_subdirs  = ${b(s.browserSubdirs)}` + nl;
   out += nl;
 
   out += '= web =' + nl + '[web]' + nl;

@@ -213,7 +213,7 @@ const Browser = (() => {
       }
       let fileHandle;
       try {
-        fileHandle = await State.dirHandle.getFileHandle(safeName, { create: true });
+        fileHandle = await currentDir().getFileHandle(safeName, { create: true });
         const writable = await fileHandle.createWritable();
         await writable.close();
       } catch (e) {
@@ -221,7 +221,7 @@ const Browser = (() => {
         return;
       }
       const doc = {
-        id: `dir:${safeName}`, name: safeName, content: '',
+        id: `dir:${dirRelPath()}${safeName}`, name: safeName, content: '',
         fileHandle, fromDisk: true, dirFile: true, modified: Date.now()
       };
       State.dirFiles.push(doc);
@@ -391,6 +391,7 @@ const Browser = (() => {
       return;
     }
     State.dirHandle = handle;
+    State.dirStack  = [];   // reset subfolder navigation to the new root
     await saveDirHandle();
     await scanDir();
     render();
@@ -413,9 +414,35 @@ const Browser = (() => {
     } catch (_) {}
   }
 
+  // A navigable folder row (subdirectory or "..") inside the watched folder.
+  function dirNavRow(label, title, onActivate) {
+    const row = document.createElement('div');
+    row.className = 'br-item br-nav-item';
+    row.tabIndex = -1;
+    row.dataset.id = '__dir__';
+
+    const ico = document.createElement('span');
+    ico.style.cssText = 'flex-shrink:0;width:1em;';
+    ico.textContent = '📁';
+
+    const name = document.createElement('span');
+    name.className = 'br-item-name';
+    name.textContent = label;
+    if (title) name.title = title;
+
+    row.appendChild(ico);
+    row.appendChild(name);
+    row.addEventListener('click', onActivate);
+    return row;
+  }
+
   function folderSection(container) {
     const dirFiles = State.dirFiles;
-    const dirName  = State.dirHandle.name;
+    const subdirs  = State.settings.browserSubdirs ? State.dirSubdirs : [];
+    // Breadcrumb: root name + any navigated subfolders.
+    const crumb = State.dirStack.length
+      ? State.dirStack.map(s => s.name).join(' / ')
+      : State.dirHandle.name;
 
     // Header row with folder name + clear button
     const hdr = document.createElement('div');
@@ -425,7 +452,7 @@ const Browser = (() => {
     hdr.style.justifyContent = 'space-between';
 
     const label = document.createElement('span');
-    label.textContent = `📁 ${dirName}`;
+    label.textContent = `📁 ${crumb}`;
     hdr.appendChild(label);
 
     const clearBtn = document.createElement('span');
@@ -435,6 +462,17 @@ const Browser = (() => {
     clearBtn.addEventListener('click', e => { e.stopPropagation(); clearFolder(); });
     hdr.appendChild(clearBtn);
     container.appendChild(hdr);
+
+    // ".." row (only when navigated into a subfolder)
+    if (State.settings.browserSubdirs && State.dirStack.length > 1) {
+      container.appendChild(dirNavRow('..', 'Go up one folder',
+        async () => { await dirUp(); render(); }));
+    }
+    // Subfolder rows
+    subdirs.forEach(sub => {
+      container.appendChild(dirNavRow(`${sub.name}/`, null,
+        async () => { await dirEnter(sub.name); render(); }));
+    });
 
     if (!dirFiles.length) {
       // Check permission state

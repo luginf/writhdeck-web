@@ -9,6 +9,8 @@ const State = {
   // Watched folder (File System Access API)
   dirHandle:    null,
   dirFiles:     [],   // in-memory only, rebuilt by scanDir()
+  dirSubdirs:   [],   // [{name, handle}] subdirectories of the current folder
+  dirStack:     [],   // [{name, handle}] root..current dir for subfolder navigation
   dirIniHandle: null, // FileSystemFileHandle for writhdeck.ini in folder
 
   // Cached INI text — the canonical settings format in IDB
@@ -53,7 +55,8 @@ const State = {
     interceptBrowserShortcuts: true,
     interceptContextMenu: true,
     browserFilter: '*.txt *.t2t *.md *.ini',
-    browserShowAll: false
+    browserShowAll: false,
+    browserSubdirs: true
   },
 
   favorites: [],  // [id, ...]
@@ -173,6 +176,8 @@ async function saveDirHandle() { await DB.setMeta('dirHandle', State.dirHandle);
 async function clearDirHandle() {
   State.dirHandle    = null;
   State.dirFiles     = [];
+  State.dirSubdirs   = [];
+  State.dirStack     = [];
   State.dirIniHandle = null;
   await DB.setMeta('dirHandle', null);
 }
@@ -208,16 +213,44 @@ function matchesBrowserFilter(name) {
 
 // ── Watched folder ────────────────────────────────────────────────────────
 
+// Handle of the folder currently being browsed (root, or a subfolder when
+// the user has navigated into one via subfolder navigation).
+function currentDir() {
+  if (State.dirStack.length) return State.dirStack[State.dirStack.length - 1].handle;
+  return State.dirHandle;
+}
+
+// Relative path (with trailing '/') from the watched root to the current
+// folder, e.g. "chapters/act1/" — "" when at the root. Used to build unique
+// ids and to display the breadcrumb.
+function dirRelPath() {
+  if (State.dirStack.length <= 1) return '';
+  return State.dirStack.slice(1).map(s => s.name).join('/') + '/';
+}
+
 async function scanDir() {
   if (!State.dirHandle) return false;
+  // Initialise / repair the navigation stack to the root.
+  if (!State.dirStack.length) State.dirStack = [{ name: State.dirHandle.name, handle: State.dirHandle }];
+  // When subfolder navigation is off, never browse below the root.
+  if (!State.settings.browserSubdirs && State.dirStack.length > 1) {
+    State.dirStack = [State.dirStack[0]];
+  }
+  const cur = currentDir();
+  const rel = dirRelPath();
   const files = [];
+  const subdirs = [];
   try {
-    for await (const [name, handle] of State.dirHandle.entries()) {
+    for await (const [name, handle] of cur.entries()) {
+      if (handle.kind === 'directory') {
+        if (State.settings.browserSubdirs && name !== 'backups') subdirs.push({ name, handle });
+        continue;
+      }
       if (handle.kind !== 'file') continue;
       if (!matchesBrowserFilter(name)) continue;
       const file = await handle.getFile();
       files.push({
-        id: `dir:${name}`, name, content: null,
+        id: `dir:${rel}${name}`, name, content: null,
         fileHandle: handle, fromDisk: true, dirFile: true,
         modified: file.lastModified
       });
@@ -227,13 +260,30 @@ async function scanDir() {
     return false;
   }
   files.sort((a, b) => a.name.localeCompare(b.name));
+  subdirs.sort((a, b) => a.name.localeCompare(b.name));
   State.dirFiles = files;
+  State.dirSubdirs = subdirs;
   try {
-    State.dirIniHandle = await State.dirHandle.getFileHandle('writhdeck.ini');
+    State.dirIniHandle = await currentDir().getFileHandle('writhdeck.ini');
   } catch (_) {
     State.dirIniHandle = null;
   }
   return true;
+}
+
+// Enter a subfolder (by name, from State.dirSubdirs) and rescan.
+async function dirEnter(name) {
+  const sub = State.dirSubdirs.find(s => s.name === name);
+  if (!sub) return;
+  State.dirStack.push(sub);
+  await scanDir();
+}
+
+// Go up one folder (no-op at the root) and rescan.
+async function dirUp() {
+  if (State.dirStack.length <= 1) return;
+  State.dirStack.pop();
+  await scanDir();
 }
 
 // ── Recents / favorites ───────────────────────────────────────────────────

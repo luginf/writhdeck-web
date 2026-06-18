@@ -528,6 +528,13 @@ function onKeydown(e) {
       const cur = document.querySelector('#br-list .br-nav-item.br-focused');
       if (cur) { e.preventDefault(); cur.click(); return; }
     }
+    // Backspace — go up one folder in the watched-folder subfolder navigation
+    if (key === 'Backspace' && Browser.hasFSA &&
+        State.settings.browserSubdirs && State.dirStack.length > 1) {
+      e.preventDefault();
+      dirUp().then(() => Browser.render());
+      return;
+    }
     if (lkey === 'n') { e.preventDefault(); Browser.newDoc();        return; }
     if (lkey === 'o' && Browser.hasFSA) { e.preventDefault(); Browser.openFromDisk(); return; }
     if (lkey === 'w' && Browser.hasFSA) { e.preventDefault(); Browser.openFolder();   return; }

@@ -159,6 +159,15 @@ Right-clicking a document row in `browser.js` shows a menu via `showContextMenu(
 
 `↑` / `↓` in the browser panel (no input focused) navigates the document list. The selected row receives class `.br-nav-item.br-focused` (accent-coloured left border via `box-shadow: inset 3px 0 0 var(--heading)`). Navigation state is tracked purely via the CSS class — no DOM focus involved. `Enter` calls `.click()` on the focused row to open the document. The `.br-focused` class is cleared when `render()` rebuilds the list.
 
+### Subfolder navigation (watched folder only)
+
+IndexedDB documents are a **flat** store (no folders). Subfolder navigation applies **only** to the File System Access watched folder (Chrome/Edge/Brave, `State.dirHandle`) — the only real filesystem the web app touches. Gated by `State.settings.browserSubdirs` (INI `browser_subdirs`, default `true`; Misc tab checkbox).
+
+- **State** (`state.js`): `State.dirStack` = `[{name, handle}]` from root to current folder (current = last; root when length 1); `State.dirSubdirs` = `[{name, handle}]` subfolders of the current folder. `currentDir()` returns the current handle, `dirRelPath()` the `"sub/sub/"` prefix.
+- **`scanDir()`** now scans `currentDir()`, collecting `kind === 'directory'` entries into `dirSubdirs` (skipping `backups` and, when off, all) and files into `dirFiles`. File ids are `dir:${relpath}${name}` (path-qualified to avoid cross-folder id collisions). `dirEnter(name)` / `dirUp()` push/pop the stack and rescan.
+- **`browser.js`** `folderSection()`: breadcrumb header (`root / sub / sub`), a `..` row (when below root) and `subname/` rows (`dirNavRow`, class `.br-nav-item` with `dataset.id='__dir__'` so `getFocusedDoc()` ignores them and file ops never act on them), then file rows. `newDoc()` creates in `currentDir()`. Opening/clearing a folder resets `dirStack`.
+- **Keys** (`app.js`): `Enter` on a focused folder row navigates (via `.click()`); `Backspace` goes up one level.
+
 ### Status bar tokens
 
 `buildZone(spec)` in `Editor.updateStatusBar()` splits the spec string on whitespace and maps tokens:
