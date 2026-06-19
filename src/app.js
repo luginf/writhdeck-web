@@ -670,6 +670,10 @@ async function init() {
   function execCmd(cmd) {
     edMenu.hidden = true;
     switch (cmd) {
+      case 'save':       Editor.save();             break;
+      case 'save-as':    Editor.saveAs();           break;
+      case 'close':      Editor.close();            break;
+      case 'browser':    Editor.browser();          break;
       case 'toc':        TOC.toggle();              break;
       case 'dark':
         State.settings.darkMode = !State.settings.darkMode;
@@ -976,6 +980,15 @@ async function init() {
     const lastId = State.recents[0];
     const doc = State.docs.find(d => d.id === lastId);
     if (doc) await Editor.open(doc);
+  }
+
+  // Embedder hook: a host page (e.g. the LionWiki-t2t writhdeck template) can
+  // define window.WRITHDECK_ON_READY to drive the app once init() has finished
+  // — open a specific document, rewire buttons, etc. Module objects are passed
+  // in because each <script> has its own scope (the embedder's script cannot
+  // reach these consts directly).
+  if (typeof window !== 'undefined' && typeof window.WRITHDECK_ON_READY === 'function') {
+    await window.WRITHDECK_ON_READY({ Editor, Browser, Settings, Stats, State, applyTheme, saveSettings, getScheme });
   }
 }
 

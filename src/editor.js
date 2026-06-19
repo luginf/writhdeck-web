@@ -128,6 +128,12 @@ const Editor = (() => {
     Browser.render();
   }
 
+  // Show the document browser. Upstream this is identical to closing the
+  // editor (there is only the browser to go back to); integrations (e.g. the
+  // LionWiki plugin) override Editor.browser to open their own file browser
+  // while keeping Editor.close as a distinct "quit / leave" action.
+  async function browser() { return close(); }
+
   // ── Save ──────────────────────────────────────────────────────────────────
 
   async function save() {
@@ -841,6 +847,9 @@ const Editor = (() => {
 
   function startAutosave() {
     stopAutosave();
+    // Embedders can opt out of autosave (e.g. a server backend that doesn't want
+    // a revision written every 60s) by setting window.WRITHDECK_AUTOSAVE = false.
+    if (typeof window !== 'undefined' && window.WRITHDECK_AUTOSAVE === false) return;
     _autosaveId = setInterval(() => { if (State.dirty) save(); }, 60000);
   }
   function stopAutosave() {
@@ -958,7 +967,7 @@ const Editor = (() => {
   }
 
   return {
-    open, close, save, saveAs, onInput, syncScroll, syncGutter, rehighlight, updateStatusBar, setMsg,
+    open, close, browser, save, saveAs, onInput, syncScroll, syncGutter, rehighlight, updateStatusBar, setMsg,
     syncCursorLineCache, syncBlockCursor,
     saveCursorPos, applyLineNumbers,
     toggleTypewriter, isTypewriter, typewriterScroll, toggleLineNumbers, gotoLine, gotoLineGo, gotoLineClose,

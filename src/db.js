@@ -1,6 +1,8 @@
 'use strict';
-// IndexedDB wrapper — promise-based
-const DB = (() => {
+// IndexedDB wrapper — promise-based.
+// This is the default storage backend. `backend.js` selects the active `DB`
+// implementation (this one, or a host-provided `window.WRITHDECK_BACKEND`).
+const IndexedDbBackend = (() => {
   const DB_NAME = 'writhdeck';
   const DB_VER  = 1;
   let _db = null;

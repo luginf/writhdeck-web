@@ -445,6 +445,17 @@ const Settings = (() => {
       updateFontPreview();
     });
 
+    // Some settings appear on more than one tab (e.g. darkMode on Display and
+    // Schemes). Keep checkboxes that share a data-key in sync, otherwise apply()
+    // — which reads every [data-key] in DOM order — would let a stale duplicate
+    // overwrite the value the user just changed.
+    document.querySelectorAll('#settings-dlg input[type=checkbox][data-key]').forEach(el => {
+      el.addEventListener('change', () => {
+        document.querySelectorAll('#settings-dlg input[type=checkbox][data-key="' + el.dataset.key + '"]')
+          .forEach(other => { if (other !== el) other.checked = el.checked; });
+      });
+    });
+
     document.getElementById('settings-apply').addEventListener('click', apply);
     document.getElementById('settings-close').addEventListener('click', () => {
       document.getElementById('settings-dlg').close();
