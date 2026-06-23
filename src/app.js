@@ -573,6 +573,7 @@ function onKeydown(e) {
 async function init() {
   await DB.open();
   await loadState();
+  await Fonts.load();   // register user-uploaded fonts before first paint
   applyTheme();
 
   // Restore watched folder if permission still granted (silent — no user gesture needed for query)
@@ -581,6 +582,7 @@ async function init() {
       const perm = await State.dirHandle.queryPermission({ mode: 'readwrite' });
       if (perm === 'granted') {
         await scanDir();
+        await Fonts.loadFromFolder(State.dirHandle);   // register <folder>/fonts/*
         // Auto-load writhdeck.ini from the watched folder (silent, no prompt)
         if (State.dirIniHandle) {
           try {

@@ -10,6 +10,7 @@ JS_ORDER = [
     'schemes.js',
     'db.js',
     'backend.js',
+    'fonts.js',
     'state.js',
     'ini.js',
     'highlight.js',

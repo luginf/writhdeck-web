@@ -394,6 +394,7 @@ const Browser = (() => {
     State.dirStack  = [];   // reset subfolder navigation to the new root
     await saveDirHandle();
     await scanDir();
+    await Fonts.loadFromFolder(State.dirHandle);
     render();
   }
 
@@ -409,6 +410,7 @@ const Browser = (() => {
       const perm = await State.dirHandle.requestPermission({ mode: 'readwrite' });
       if (perm === 'granted') {
         await scanDir();
+        await Fonts.loadFromFolder(State.dirHandle);
         render();
       }
     } catch (_) {}

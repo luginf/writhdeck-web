@@ -454,9 +454,16 @@ dialog::backdrop { background: rgba(0,0,0,0.5); }
   padding: 3px 8px;
   cursor: pointer;
   white-space: nowrap;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
 }
 .font-item:hover { background: var(--bg-bar); }
 .font-item.selected { background: var(--bg-sel); color: var(--fg); }
+.font-del { color: var(--fg-bar); cursor: pointer; flex-shrink: 0; font-size: 0.9em; }
+.font-del:hover { color: var(--fg); }
+#font-actions { display: flex; gap: 8px; flex-wrap: wrap; margin: 6px 0; }
 
 /* Scheme colors grid */
 #scheme-colors {
@@ -618,7 +625,7 @@ dialog::backdrop { background: rgba(0,0,0,0.5); }
     <p>Writhdeck is a distraction-free writing environment for long-form text — novels, essays, notes, scripts.</p>
     <p>All your documents live in your browser (IndexedDB) — nothing is sent to any server. You can also edit files directly on disk.</p>
     <p>It features a custom colour-syntax overlay, typewriter focus mode, a session timer, daily word goals, and a fully keyboard-driven interface. Compatible with the Writhdeck desktop app via shared <code>.ini</code> settings.</p>
-    <p class="about-version">Build: 2026-06-19 — Open source — <a href="https://github.com/luginf/writhdeck-web/" target="_blank" rel="noopener">github.com/luginf/writhdeck-web</a></p>
+    <p class="about-version">Build: 2026-06-23 — Open source — <a href="https://github.com/luginf/writhdeck-web/" target="_blank" rel="noopener">github.com/luginf/writhdeck-web</a></p>
   </div>
   <div id="about-footer">
     <button id="about-ok">Close</button>
@@ -786,7 +793,12 @@ dialog::backdrop { background: rgba(0,0,0,0.5); }
         <span class="hint">Preview:</span>
         <div id="font-preview">The quick brown fox</div>
       </div>
-      <label class="hint-label"><span class="hint">Available system fonts (click to select):</span></label>
+      <div id="font-actions">
+        <button type="button" id="font-upload-btn">Upload font file…</button>
+        <button type="button" id="font-scan-btn">Scan all system fonts</button>
+        <input type="file" id="font-upload-input" accept=".ttf,.otf,.woff,.woff2" multiple hidden>
+      </div>
+      <label class="hint-label"><span class="hint">Available fonts (click to select):</span></label>
       <div id="font-list"></div>
     </div>
 
@@ -1070,6 +1082,90 @@ const IndexedDbBackend = (() => {
 const DB = (typeof window !== 'undefined' && window.WRITHDECK_BACKEND)
   ? window.WRITHDECK_BACKEND
   : IndexedDbBackend;
+
+
+'use strict';
+// User-supplied editor fonts — the web counterpart of writhdeck-android's
+// <configDir>/fonts/ folder. The user uploads .ttf/.otf (also .woff/.woff2)
+// files; each is registered at runtime via the CSS Font Loading API
+// (`FontFace`) and the binary is persisted in IndexedDB (`meta['userFonts']`)
+// so it survives reloads. The chosen font name lives in the INI's `font_family`
+// value exactly like a system font — no special INI handling needed.
+const Fonts = (() => {
+  const META_KEY = 'userFonts';
+  const FONT_RE  = /\.(ttf|otf|woff2?)$/i;
+  let _fonts = [];        // uploaded, persisted in IndexedDB: [{ name, data: ArrayBuffer }]
+  let _folderFonts = [];  // names found in <watchedFolder>/fonts/ (on disk, not persisted)
+
+  // Registers a FontFace from a binary buffer and adds it to document.fonts.
+  async function register(name, data) {
+    try {
+      const face = new FontFace(name, data);
+      await face.load();
+      document.fonts.add(face);
+      return true;
+    } catch (e) {
+      console.warn('Font load failed:', name, e);
+      return false;
+    }
+  }
+
+  // Called once at startup (app.js init): re-registers every stored font so
+  // custom fonts render immediately, before applyTheme().
+  async function load() {
+    try { _fonts = (await DB.getMeta(META_KEY)) || []; }
+    catch (_) { _fonts = []; }
+    for (const f of _fonts) await register(f.name, f.data);
+  }
+
+  // Adds one uploaded File: registers it and persists the binary. Returns the
+  // derived font name (filename without extension) on success, or null.
+  async function add(file) {
+    const buf  = await file.arrayBuffer();
+    const name = file.name.replace(FONT_RE, '').trim() || file.name;
+    if (!await register(name, buf)) return null;
+    _fonts = _fonts.filter(f => f.name !== name);   // replace same-named font
+    _fonts.push({ name, data: buf });
+    await DB.setMeta(META_KEY, _fonts);
+    return name;
+  }
+
+  // Forgets a stored font. The already-registered FontFace can't be reliably
+  // un-added cross-browser, but it's gone after the next reload.
+  async function remove(name) {
+    _fonts = _fonts.filter(f => f.name !== name);
+    await DB.setMeta(META_KEY, _fonts);
+  }
+
+  // Scans a `fonts/` subfolder of the watched folder (File System Access API,
+  // Chromium only) and registers every .ttf/.otf/.woff(2) it holds — the web
+  // counterpart of writhdeck-android's docsDir/fonts. These live on disk, so
+  // they're re-scanned each time access is granted rather than persisted, and
+  // are not removable from the UI. Call after scanDir() at the watched root.
+  async function loadFromFolder(rootHandle) {
+    _folderFonts = [];
+    if (!rootHandle) return _folderFonts;
+    let dir;
+    try { dir = await rootHandle.getDirectoryHandle('fonts'); }
+    catch (_) { return _folderFonts; }   // no fonts/ subfolder
+    try {
+      for await (const [name, handle] of dir.entries()) {
+        if (handle.kind !== 'file' || !FONT_RE.test(name)) continue;
+        try {
+          const buf = await (await handle.getFile()).arrayBuffer();
+          const fontName = name.replace(FONT_RE, '');
+          if (await register(fontName, buf)) _folderFonts.push(fontName);
+        } catch (_) {}
+      }
+    } catch (_) {}
+    return _folderFonts;
+  }
+
+  function names() { return _fonts.map(f => f.name); }
+  function folderNames() { return _folderFonts.slice(); }
+
+  return { load, add, remove, names, loadFromFolder, folderNames };
+})();
 
 
 'use strict';
@@ -3505,6 +3601,7 @@ const Browser = (() => {
     State.dirStack  = [];   // reset subfolder navigation to the new root
     await saveDirHandle();
     await scanDir();
+    await Fonts.loadFromFolder(State.dirHandle);
     render();
   }
 
@@ -3520,6 +3617,7 @@ const Browser = (() => {
       const perm = await State.dirHandle.requestPermission({ mode: 'readwrite' });
       if (perm === 'granted') {
         await scanDir();
+        await Fonts.loadFromFolder(State.dirHandle);
         render();
       }
     } catch (_) {}
@@ -3730,10 +3828,10 @@ const Settings = (() => {
   }
 
   function populateFontList(current) {
-    const list = document.getElementById('font-list');
-    list.innerHTML = '';
-    // Detect available fonts via canvas
-    const available = detectFonts([
+    // Detect a curated subset of common fonts via canvas (works in every browser).
+    // For the full system list the user can press "Scan all system fonts"
+    // (Local Font Access API, Chromium only) — see scanAllSystemFonts().
+    const detected = detectFonts([
       'monospace', 'serif', 'sans-serif',
       'Courier New', 'Consolas', 'Fira Code', 'JetBrains Mono', 'Source Code Pro',
       'Liberation Mono', 'DejaVu Sans Mono', 'Ubuntu Mono', 'Inconsolata',
@@ -3741,19 +3839,65 @@ const Settings = (() => {
       'Georgia', 'Palatino', 'Times New Roman', 'Arial', 'Helvetica', 'Verdana',
       'Noto Serif', 'Noto Sans', 'Tahoma', 'Trebuchet MS'
     ]);
-    available.forEach(font => {
+    renderFontList([...Fonts.names(), ...Fonts.folderNames(), ...detected], current);
+  }
+
+  // Renders a de-duplicated font list. Uploaded fonts (Fonts.names()) get a
+  // "(custom)" tag + remove control; fonts found in the watched folder's fonts/
+  // subfolder (Fonts.folderNames()) get a "(folder)" tag and are not removable.
+  function renderFontList(families, current) {
+    const list = document.getElementById('font-list');
+    list.innerHTML = '';
+    const userNames   = new Set(Fonts.names());
+    const folderNames = new Set(Fonts.folderNames());
+    const seen = new Set();
+    families.forEach(font => {
+      if (seen.has(font)) return;
+      seen.add(font);
       const div = document.createElement('div');
       div.className = 'font-item' + (font === current ? ' selected' : '');
-      div.textContent = font;
-      div.style.fontFamily = font;
+      const tag = userNames.has(font) ? '  (custom)' : folderNames.has(font) ? '  (folder)' : '';
+      const label = document.createElement('span');
+      label.textContent = font + tag;
+      label.style.fontFamily = font;
+      div.appendChild(label);
       div.addEventListener('click', () => {
         document.querySelectorAll('.font-item').forEach(d => d.classList.remove('selected'));
         div.classList.add('selected');
         document.getElementById('font-family-input').value = font;
         updateFontPreview(font);
       });
+      if (userNames.has(font)) {
+        const del = document.createElement('span');
+        del.className = 'font-del';
+        del.textContent = '✕';
+        del.title = 'Remove this font';
+        del.addEventListener('click', async e => {
+          e.stopPropagation();
+          await Fonts.remove(font);
+          populateFontList(document.getElementById('font-family-input').value);
+        });
+        div.appendChild(del);
+      }
       list.appendChild(div);
     });
+  }
+
+  // Lists every installed system font via the Local Font Access API. Only
+  // Chromium-based browsers support it (and it prompts for permission); other
+  // browsers keep the detected subset.
+  async function scanAllSystemFonts() {
+    if (!window.queryLocalFonts) {
+      alert('Your browser cannot enumerate all system fonts (Local Font Access API — Chrome/Edge only). Showing the detected subset instead.');
+      return;
+    }
+    try {
+      const picked = await window.queryLocalFonts();
+      const families = [...new Set(picked.map(f => f.family))].sort((a, b) => a.localeCompare(b));
+      renderFontList([...Fonts.names(), ...Fonts.folderNames(), ...families], document.getElementById('font-family-input').value);
+    } catch (_) {
+      alert('Could not access system fonts (permission denied).');
+    }
   }
 
   function detectFonts(candidates) {
@@ -4103,6 +4247,25 @@ const Settings = (() => {
       updateFontPreview();
     });
 
+    // Custom font upload (.ttf/.otf/.woff/.woff2 → IndexedDB + FontFace)
+    document.getElementById('font-upload-btn').addEventListener('click', () => {
+      document.getElementById('font-upload-input').click();
+    });
+    document.getElementById('font-upload-input').addEventListener('change', async e => {
+      let last = null;
+      for (const f of [...e.target.files]) {
+        const name = await Fonts.add(f);
+        if (name) last = name;
+      }
+      e.target.value = '';
+      if (last) {
+        document.getElementById('font-family-input').value = last;
+        updateFontPreview(last);
+      }
+      populateFontList(document.getElementById('font-family-input').value);
+    });
+    document.getElementById('font-scan-btn').addEventListener('click', scanAllSystemFonts);
+
     // Some settings appear on more than one tab (e.g. darkMode on Display and
     // Schemes). Keep checkboxes that share a data-key in sync, otherwise apply()
     // — which reads every [data-key] in DOM order — would let a stale duplicate
@@ -4147,7 +4310,7 @@ const Settings = (() => {
 'use strict';
 // Main entry point
 
-const README_CONTENT = "# Writhdeck\n\nA distraction-free writing app that runs as a single self-contained HTML file \u2014 no server, no install, no internet required. Open `writhdeck.html` directly in any modern browser.\n\n\n- [Try it online!](https://luginf.github.io/writhdeck/)\n- [Main project](https://github.com/luginf/writhdeck/)\n\n\n## Features\n\n- **Single-file**: the entire app is one `writhdeck.html` (~180 KB). Copy it anywhere, it just works.\n- **Document browser**: create, rename, delete, and favourite documents stored in IndexedDB. Document names are unique \u2014 duplicates are auto-suggested as `\"Untitled (2)\"` etc.\n- **Disk file support** (Chrome/Edge/Brave): open individual files or watch a folder \u2014 edits go straight back to disk via the File System Access API.\n- **Syntax highlighting overlay**: headings, comments, and inline markers (bold, italic, underline, strikethrough) are coloured in real time without leaving the textarea.\n- **Configurable markers**: choose your own syntax for headings, comments, and each inline style. Enable Markdown-style `#` headings if you prefer.\n- **8 built-in colour schemes** (default, solarized, gruvbox, everforest, nord, + 3 more), dark and light variants, and full custom-scheme support.\n- **Writing timer**: countdown or stopwatch, with optional sound and alert at the end.\n- **Table of contents**: auto-generated from heading lines, shown in a side panel.\n- **Daily writing stats**: tracks words *added* today (not total document size) with a high-water mark across sessions. Optional daily goal.\n- **Hemingway mode**: disables backspace/delete to keep you writing forward.\n- **Typewriter mode**: keeps the cursor vertically centred; dims text outside the current paragraph so only the active paragraph appears at full colour.\n- **Find & replace** with live match highlighting, goto line, line numbers.\n- **Structure analysis**: section-by-section word-count breakdown with progress bars. Accessible from the `\u2261` menu (`a`).\n- **Word occurrences**: frequency table of all words, sorted by count. Accessible from the Analyse dialog or the `\u2261` menu.\n- **Block cursor**: optional solid rectangle cursor, rendered in the highlight overlay. Supports blink on/off.\n- **Export** as `.txt` or `.md`.\n- **INI config**: `writhdeck.ini` is always visible in the browser. Right-click it to open, export, or reset to defaults. The format is compatible with the Tcl/Tk desktop version; web-specific options are in a dedicated `[web]` section.\n- **Status bar**: fully customisable left/centre/right slots with tokens \u2014 see [Status bar tokens](#status-bar-tokens).\n- **`\u2261` menu**: all commands accessible from a single dropdown \u2014 keyboard-navigable (\u2191\u2193 + Enter, or press the hint letter directly), with format options (H1\u2013H3, bold, italic\u2026), search, export, settings, and more. Opening the menu preserves any active text selection.\n- **Right-click context menu**: format, cut/copy/paste, and spell-check toggle (editor); Open / Info / Rename / Export / Delete (browser document list); Open / Export / Reset (writhdeck.ini).\n- **Command mode** (`Esc` or `Alt+C`): interactive status bar showing all commands as clickable buttons. Navigate with `\u2190`/`\u2192`, confirm with `Enter`, or click with the mouse.\n- **About dialog**: accessible from the `?` menu in the browser \u2014 shows the app description and build date.\n- **Undo support**: bold, italic, heading, and comment formatting operations integrate with the browser's native undo stack (via `execCommand('insertText')`).\n\n## Build\n\n```sh\nmake        # produces writhdeck.html (~180 KB)\nmake clean  # removes writhdeck.html\n```\n\n`build.py` reads `src/template.html`, inlines `src/style.css` and all JS modules (in the order defined in `JS_ORDER`), and writes the result to stdout. The build date is embedded as `2026-06-19` (ISO format). Python 3, no dependencies.\n\n## Keyboard shortcuts\n\n### Global\n\n| Shortcut | Action |\n|---|---|\n| `Ctrl+D` | Toggle dark / light mode |\n| `Ctrl+O` | Import file copy |\n| `F11` | Toggle table of contents |\n| `Alt+Enter` | Toggle fullscreen |\n| `Ctrl+N` *(opt)* | New document (overrides browser \"new window\", requires setting) |\n\n### Editor\n\n| Shortcut | Action |\n|---|---|\n| `Ctrl+S` | Save |\n| `Ctrl+Q` | Close document (`Ctrl+Shift+Q` on Firefox, see [Browser notes](#browser-notes)) |\n| `Ctrl+F` | Find (live match highlighting) |\n| `Ctrl+H` | Find & replace |\n| `Ctrl+G` | Go to line |\n| `Ctrl+L` | Toggle line numbers |\n| `Alt+T` | Toggle timer |\n| `Alt+C` / `Esc` | Enter command mode |\n| `Alt+M` | Open `\u2261` menu |\n\n### Command mode (`Alt+C` or `Esc`)\n\nThe status bar becomes an interactive row of command buttons. Works in fullscreen (`Alt+C`).\n\n| Input | Action |\n|---|---|\n| `\u2190` / `\u2192` | Move selection between commands |\n| `Enter` | Execute selected command |\n| *letter* | Execute command directly (e.g. `f` = Find) |\n| Mouse click | Execute command directly |\n\n| Key | Action | Key | Action |\n|---|---|---|---|\n| `f` | Find | `d` | Dark / light |\n| `r` | Find & replace | `o` | Table of contents |\n| `g` | Go to line | `c` | Settings |\n| `n` | Line numbers | `e` | Export as .txt |\n| `w` | Typewriter mode | `s` | Statistics |\n| `t` | Timer | `a` | Analyse structure |\n| `p` | Timer pause | `i` | File info |\n| `q` | Close document | `m` | Main menu (\u2261) |\n\n### Browser (document list)\n\n| Key | Action |\n|---|---|\n| `\u2191` / `\u2193` | Navigate document list |\n| `Enter` | Open selected document |\n| `n` | New document |\n| `o` | Open file from disk |\n| `w` | Watch a folder |\n| `s` | Stats |\n| `c` | Settings |\n\n## Browser notes\n\n- **Disk file support** (open/watch files, edits saved straight back to disk) requires the File System Access API \u2014 available in Chrome, Edge, Brave, and other Chromium-based browsers. Firefox falls back to IndexedDB-only storage.\n- **Large documents** (tens of thousands of words): Firefox is noticeably slower than Chromium-based browsers, especially when a full re-render is triggered (search highlighting, Typewriter mode, multi-line edits like paste/undo). Chromium-based browsers are recommended for very large documents.\n- **`Ctrl+Q`**: Firefox intercepts the plain shortcut as its own \"Quit\" command before the page sees it \u2014 use `Ctrl+Shift+Q` to close the document (works in both Firefox and Chrome).\n\n## Status bar tokens\n\nThe three status bar zones (left / centre / right) are configured as space-separated token strings in Settings \u2192 Profile.\n\n| Token | Example | Description |\n|---|---|---|\n| `filename` | `my-novel.txt` | Current document name |\n| `dirty` | `[+]` | Unsaved changes indicator |\n| `words` | `1 842w` | Word count |\n| `chars` | `10 240c` | Character count |\n| `lines` | `312L` | Total line count |\n| `line` | `L42` | Current cursor line |\n| `col` | `C7` | Current cursor column |\n| `para` | `18\u00a7` | Paragraph count (blank-line separated) |\n| `pages` | `7p` | Estimated pages at 250 w/page |\n| `percent` | `68%` | Progress toward word goal |\n| `today` | `342\u2191` | Words *added* today (high-water mark across sessions) |\n| `goal` | `342/500` | Today's words / goal (hidden if no goal) |\n| `reading` | `9min` | Estimated reading time at 200 w/min |\n| `clock` | `14:32` | Current time |\n| `timer` | `24:07` | Writing timer display |\n| `space` | ` ` | Single space (explicit separator) |\n| *(anything else)* | literal | Fixed text, separators, etc. |\n\nDefault: Left `filename dirty words` \u00b7 Center *(empty)* \u00b7 Right `goal clock timer`\n\n## INI config\n\n`writhdeck.ini` uses the same format as the Tcl/Tk desktop version. Web-specific options live in a dedicated section so they are silently ignored by the desktop version:\n\n```ini\n[web]\n% Options specific to the web version \u2014 ignored by the desktop version\nopen_last_doc               = no\nintercept_browser_shortcuts = yes\nintercept_context_menu      = yes\n```\n\nOptions shared with the desktop version (`block_cursor`, `blink_cursor`, `line_numbers`, `dark_mode`, etc.) stay in `[behaviour]`.\n\nRight-click `writhdeck.ini` in the browser to export it or reset all settings to defaults (the file is recreated from defaults on next load).\n\n## Project structure\n\n```\nsrc/\n  template.html   HTML skeleton with {{STYLE}} / {{SCRIPT}} / 2026-06-19 placeholders\n  style.css       All CSS (uses CSS custom properties only, no hardcoded colours)\n  schemes.js      Built-in colour schemes + custom-scheme support\n  db.js           IndexedDB wrapper (promise-based)\n  state.js        App state, load/save helpers\n  ini.js          INI config parser/writer (compatible with desktop version)\n  highlight.js    Syntax highlighter + word count + block cursor injection\n  timer.js        Writing timer\n  toc.js          Table of contents\n  stats.js        Daily word-count stats dialog\n  editor.js       Editor panel, textarea/overlay sync, find/replace, formatting\n  browser.js      Document browser panel, FSA integration\n  settings.js     Settings dialog\n  app.js          Entry point, theme, keyboard router, menus, dialogs\nbuild.py          Build script (inlines CSS/JS, stamps build date)\nMakefile          Convenience wrapper around build.py\n```\n\n## Storage\n\nDocuments are stored in IndexedDB (`writhdeck` database, version 1):\n\n- **`documents`** store \u2014 each document: `id`, `name`, `content`, `created`, `modified`.\n- **`meta`** store \u2014 keyed entries: `iniText`, `favorites`, `recents`, `cursors`, `daily`.\n\nNothing is sent to any server.\n\n## Adding a colour scheme\n\nAdd an entry to the `SCHEMES` object in `src/schemes.js`. Each scheme needs 9 dark-mode keys and 9 light-mode (`*Alt`) keys: `bg`, `fg`, `bgBar`, `fgBar`, `bgSel`, `heading`, `comment`, `markup`, `bg2` (+ `Alt` variants). Then run `make`.\n\n## License\n\nCopyright (C) 2026 by Luginfo \u2014 Zero-Clause BSD License\n\nPermission to use, copy, modify, and/or distribute this software for any purpose with or without fee is hereby granted. The software is provided \"as is\" without warranty of any kind.\n";
+const README_CONTENT = "# Writhdeck\n\nA distraction-free writing app that runs as a single self-contained HTML file \u2014 no server, no install, no internet required. Open `writhdeck.html` directly in any modern browser.\n\n\n- [Try it online!](https://luginf.github.io/writhdeck/)\n- [Main project](https://github.com/luginf/writhdeck/)\n\n\n## Features\n\n- **Single-file**: the entire app is one `writhdeck.html` (~180 KB). Copy it anywhere, it just works.\n- **Document browser**: create, rename, delete, and favourite documents stored in IndexedDB. Document names are unique \u2014 duplicates are auto-suggested as `\"Untitled (2)\"` etc.\n- **Disk file support** (Chrome/Edge/Brave): open individual files or watch a folder \u2014 edits go straight back to disk via the File System Access API.\n- **Syntax highlighting overlay**: headings, comments, and inline markers (bold, italic, underline, strikethrough) are coloured in real time without leaving the textarea.\n- **Configurable markers**: choose your own syntax for headings, comments, and each inline style. Enable Markdown-style `#` headings if you prefer.\n- **8 built-in colour schemes** (default, solarized, gruvbox, everforest, nord, + 3 more), dark and light variants, and full custom-scheme support.\n- **Writing timer**: countdown or stopwatch, with optional sound and alert at the end.\n- **Table of contents**: auto-generated from heading lines, shown in a side panel.\n- **Daily writing stats**: tracks words *added* today (not total document size) with a high-water mark across sessions. Optional daily goal.\n- **Hemingway mode**: disables backspace/delete to keep you writing forward.\n- **Typewriter mode**: keeps the cursor vertically centred; dims text outside the current paragraph so only the active paragraph appears at full colour.\n- **Find & replace** with live match highlighting, goto line, line numbers.\n- **Structure analysis**: section-by-section word-count breakdown with progress bars. Accessible from the `\u2261` menu (`a`).\n- **Word occurrences**: frequency table of all words, sorted by count. Accessible from the Analyse dialog or the `\u2261` menu.\n- **Block cursor**: optional solid rectangle cursor, rendered in the highlight overlay. Supports blink on/off.\n- **Export** as `.txt` or `.md`.\n- **INI config**: `writhdeck.ini` is always visible in the browser. Right-click it to open, export, or reset to defaults. The format is compatible with the Tcl/Tk desktop version; web-specific options are in a dedicated `[web]` section.\n- **Status bar**: fully customisable left/centre/right slots with tokens \u2014 see [Status bar tokens](#status-bar-tokens).\n- **`\u2261` menu**: all commands accessible from a single dropdown \u2014 keyboard-navigable (\u2191\u2193 + Enter, or press the hint letter directly), with format options (H1\u2013H3, bold, italic\u2026), search, export, settings, and more. Opening the menu preserves any active text selection.\n- **Right-click context menu**: format, cut/copy/paste, and spell-check toggle (editor); Open / Info / Rename / Export / Delete (browser document list); Open / Export / Reset (writhdeck.ini).\n- **Command mode** (`Esc` or `Alt+C`): interactive status bar showing all commands as clickable buttons. Navigate with `\u2190`/`\u2192`, confirm with `Enter`, or click with the mouse.\n- **About dialog**: accessible from the `?` menu in the browser \u2014 shows the app description and build date.\n- **Undo support**: bold, italic, heading, and comment formatting operations integrate with the browser's native undo stack (via `execCommand('insertText')`).\n\n## Build\n\n```sh\nmake        # produces writhdeck.html (~180 KB)\nmake clean  # removes writhdeck.html\n```\n\n`build.py` reads `src/template.html`, inlines `src/style.css` and all JS modules (in the order defined in `JS_ORDER`), and writes the result to stdout. The build date is embedded as `2026-06-23` (ISO format). Python 3, no dependencies.\n\n## Keyboard shortcuts\n\n### Global\n\n| Shortcut | Action |\n|---|---|\n| `Ctrl+D` | Toggle dark / light mode |\n| `Ctrl+O` | Import file copy |\n| `F11` | Toggle table of contents |\n| `Alt+Enter` | Toggle fullscreen |\n| `Ctrl+N` *(opt)* | New document (overrides browser \"new window\", requires setting) |\n\n### Editor\n\n| Shortcut | Action |\n|---|---|\n| `Ctrl+S` | Save |\n| `Ctrl+Q` | Close document (`Ctrl+Shift+Q` on Firefox, see [Browser notes](#browser-notes)) |\n| `Ctrl+F` | Find (live match highlighting) |\n| `Ctrl+H` | Find & replace |\n| `Ctrl+G` | Go to line |\n| `Ctrl+L` | Toggle line numbers |\n| `Alt+T` | Toggle timer |\n| `Alt+C` / `Esc` | Enter command mode |\n| `Alt+M` | Open `\u2261` menu |\n\n### Command mode (`Alt+C` or `Esc`)\n\nThe status bar becomes an interactive row of command buttons. Works in fullscreen (`Alt+C`).\n\n| Input | Action |\n|---|---|\n| `\u2190` / `\u2192` | Move selection between commands |\n| `Enter` | Execute selected command |\n| *letter* | Execute command directly (e.g. `f` = Find) |\n| Mouse click | Execute command directly |\n\n| Key | Action | Key | Action |\n|---|---|---|---|\n| `f` | Find | `d` | Dark / light |\n| `r` | Find & replace | `o` | Table of contents |\n| `g` | Go to line | `c` | Settings |\n| `n` | Line numbers | `e` | Export as .txt |\n| `w` | Typewriter mode | `s` | Statistics |\n| `t` | Timer | `a` | Analyse structure |\n| `p` | Timer pause | `i` | File info |\n| `q` | Close document | `m` | Main menu (\u2261) |\n\n### Browser (document list)\n\n| Key | Action |\n|---|---|\n| `\u2191` / `\u2193` | Navigate document list |\n| `Enter` | Open selected document |\n| `n` | New document |\n| `o` | Open file from disk |\n| `w` | Watch a folder |\n| `s` | Stats |\n| `c` | Settings |\n\n## Browser notes\n\n- **Disk file support** (open/watch files, edits saved straight back to disk) requires the File System Access API \u2014 available in Chrome, Edge, Brave, and other Chromium-based browsers. Firefox falls back to IndexedDB-only storage.\n- **Large documents** (tens of thousands of words): Firefox is noticeably slower than Chromium-based browsers, especially when a full re-render is triggered (search highlighting, Typewriter mode, multi-line edits like paste/undo). Chromium-based browsers are recommended for very large documents.\n- **`Ctrl+Q`**: Firefox intercepts the plain shortcut as its own \"Quit\" command before the page sees it \u2014 use `Ctrl+Shift+Q` to close the document (works in both Firefox and Chrome).\n\n## Status bar tokens\n\nThe three status bar zones (left / centre / right) are configured as space-separated token strings in Settings \u2192 Profile.\n\n| Token | Example | Description |\n|---|---|---|\n| `filename` | `my-novel.txt` | Current document name |\n| `dirty` | `[+]` | Unsaved changes indicator |\n| `words` | `1 842w` | Word count |\n| `chars` | `10 240c` | Character count |\n| `lines` | `312L` | Total line count |\n| `line` | `L42` | Current cursor line |\n| `col` | `C7` | Current cursor column |\n| `para` | `18\u00a7` | Paragraph count (blank-line separated) |\n| `pages` | `7p` | Estimated pages at 250 w/page |\n| `percent` | `68%` | Progress toward word goal |\n| `today` | `342\u2191` | Words *added* today (high-water mark across sessions) |\n| `goal` | `342/500` | Today's words / goal (hidden if no goal) |\n| `reading` | `9min` | Estimated reading time at 200 w/min |\n| `clock` | `14:32` | Current time |\n| `timer` | `24:07` | Writing timer display |\n| `space` | ` ` | Single space (explicit separator) |\n| *(anything else)* | literal | Fixed text, separators, etc. |\n\nDefault: Left `filename dirty words` \u00b7 Center *(empty)* \u00b7 Right `goal clock timer`\n\n## INI config\n\n`writhdeck.ini` uses the same format as the Tcl/Tk desktop version. Web-specific options live in a dedicated section so they are silently ignored by the desktop version:\n\n```ini\n[web]\n% Options specific to the web version \u2014 ignored by the desktop version\nopen_last_doc               = no\nintercept_browser_shortcuts = yes\nintercept_context_menu      = yes\n```\n\nOptions shared with the desktop version (`block_cursor`, `blink_cursor`, `line_numbers`, `dark_mode`, etc.) stay in `[behaviour]`.\n\nRight-click `writhdeck.ini` in the browser to export it or reset all settings to defaults (the file is recreated from defaults on next load).\n\n## Project structure\n\n```\nsrc/\n  template.html   HTML skeleton with {{STYLE}} / {{SCRIPT}} / 2026-06-23 placeholders\n  style.css       All CSS (uses CSS custom properties only, no hardcoded colours)\n  schemes.js      Built-in colour schemes + custom-scheme support\n  db.js           IndexedDB wrapper (promise-based)\n  state.js        App state, load/save helpers\n  ini.js          INI config parser/writer (compatible with desktop version)\n  highlight.js    Syntax highlighter + word count + block cursor injection\n  timer.js        Writing timer\n  toc.js          Table of contents\n  stats.js        Daily word-count stats dialog\n  editor.js       Editor panel, textarea/overlay sync, find/replace, formatting\n  browser.js      Document browser panel, FSA integration\n  settings.js     Settings dialog\n  app.js          Entry point, theme, keyboard router, menus, dialogs\nbuild.py          Build script (inlines CSS/JS, stamps build date)\nMakefile          Convenience wrapper around build.py\n```\n\n## Storage\n\nDocuments are stored in IndexedDB (`writhdeck` database, version 1):\n\n- **`documents`** store \u2014 each document: `id`, `name`, `content`, `created`, `modified`.\n- **`meta`** store \u2014 keyed entries: `iniText`, `favorites`, `recents`, `cursors`, `daily`.\n\nNothing is sent to any server.\n\n## Adding a colour scheme\n\nAdd an entry to the `SCHEMES` object in `src/schemes.js`. Each scheme needs 9 dark-mode keys and 9 light-mode (`*Alt`) keys: `bg`, `fg`, `bgBar`, `fgBar`, `bgSel`, `heading`, `comment`, `markup`, `bg2` (+ `Alt` variants). Then run `make`.\n\n## License\n\nCopyright (C) 2026 by Luginfo \u2014 Zero-Clause BSD License\n\nPermission to use, copy, modify, and/or distribute this software for any purpose with or without fee is hereby granted. The software is provided \"as is\" without warranty of any kind.\n";
 
 let _edMenu          = null;
 let _openMenuFn      = null;
@@ -4719,6 +4882,7 @@ function onKeydown(e) {
 async function init() {
   await DB.open();
   await loadState();
+  await Fonts.load();   // register user-uploaded fonts before first paint
   applyTheme();
 
   // Restore watched folder if permission still granted (silent — no user gesture needed for query)
@@ -4727,6 +4891,7 @@ async function init() {
       const perm = await State.dirHandle.queryPermission({ mode: 'readwrite' });
       if (perm === 'granted') {
         await scanDir();
+        await Fonts.loadFromFolder(State.dirHandle);   // register <folder>/fonts/*
         // Auto-load writhdeck.ini from the watched folder (silent, no prompt)
         if (State.dirIniHandle) {
           try {

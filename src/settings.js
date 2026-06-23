@@ -72,10 +72,10 @@ const Settings = (() => {
   }
 
   function populateFontList(current) {
-    const list = document.getElementById('font-list');
-    list.innerHTML = '';
-    // Detect available fonts via canvas
-    const available = detectFonts([
+    // Detect a curated subset of common fonts via canvas (works in every browser).
+    // For the full system list the user can press "Scan all system fonts"
+    // (Local Font Access API, Chromium only) — see scanAllSystemFonts().
+    const detected = detectFonts([
       'monospace', 'serif', 'sans-serif',
       'Courier New', 'Consolas', 'Fira Code', 'JetBrains Mono', 'Source Code Pro',
       'Liberation Mono', 'DejaVu Sans Mono', 'Ubuntu Mono', 'Inconsolata',
@@ -83,19 +83,65 @@ const Settings = (() => {
       'Georgia', 'Palatino', 'Times New Roman', 'Arial', 'Helvetica', 'Verdana',
       'Noto Serif', 'Noto Sans', 'Tahoma', 'Trebuchet MS'
     ]);
-    available.forEach(font => {
+    renderFontList([...Fonts.names(), ...Fonts.folderNames(), ...detected], current);
+  }
+
+  // Renders a de-duplicated font list. Uploaded fonts (Fonts.names()) get a
+  // "(custom)" tag + remove control; fonts found in the watched folder's fonts/
+  // subfolder (Fonts.folderNames()) get a "(folder)" tag and are not removable.
+  function renderFontList(families, current) {
+    const list = document.getElementById('font-list');
+    list.innerHTML = '';
+    const userNames   = new Set(Fonts.names());
+    const folderNames = new Set(Fonts.folderNames());
+    const seen = new Set();
+    families.forEach(font => {
+      if (seen.has(font)) return;
+      seen.add(font);
       const div = document.createElement('div');
       div.className = 'font-item' + (font === current ? ' selected' : '');
-      div.textContent = font;
-      div.style.fontFamily = font;
+      const tag = userNames.has(font) ? '  (custom)' : folderNames.has(font) ? '  (folder)' : '';
+      const label = document.createElement('span');
+      label.textContent = font + tag;
+      label.style.fontFamily = font;
+      div.appendChild(label);
       div.addEventListener('click', () => {
         document.querySelectorAll('.font-item').forEach(d => d.classList.remove('selected'));
         div.classList.add('selected');
         document.getElementById('font-family-input').value = font;
         updateFontPreview(font);
       });
+      if (userNames.has(font)) {
+        const del = document.createElement('span');
+        del.className = 'font-del';
+        del.textContent = '✕';
+        del.title = 'Remove this font';
+        del.addEventListener('click', async e => {
+          e.stopPropagation();
+          await Fonts.remove(font);
+          populateFontList(document.getElementById('font-family-input').value);
+        });
+        div.appendChild(del);
+      }
       list.appendChild(div);
     });
+  }
+
+  // Lists every installed system font via the Local Font Access API. Only
+  // Chromium-based browsers support it (and it prompts for permission); other
+  // browsers keep the detected subset.
+  async function scanAllSystemFonts() {
+    if (!window.queryLocalFonts) {
+      alert('Your browser cannot enumerate all system fonts (Local Font Access API — Chrome/Edge only). Showing the detected subset instead.');
+      return;
+    }
+    try {
+      const picked = await window.queryLocalFonts();
+      const families = [...new Set(picked.map(f => f.family))].sort((a, b) => a.localeCompare(b));
+      renderFontList([...Fonts.names(), ...Fonts.folderNames(), ...families], document.getElementById('font-family-input').value);
+    } catch (_) {
+      alert('Could not access system fonts (permission denied).');
+    }
   }
 
   function detectFonts(candidates) {
@@ -444,6 +490,25 @@ const Settings = (() => {
     document.getElementById('font-family-input').addEventListener('input', () => {
       updateFontPreview();
     });
+
+    // Custom font upload (.ttf/.otf/.woff/.woff2 → IndexedDB + FontFace)
+    document.getElementById('font-upload-btn').addEventListener('click', () => {
+      document.getElementById('font-upload-input').click();
+    });
+    document.getElementById('font-upload-input').addEventListener('change', async e => {
+      let last = null;
+      for (const f of [...e.target.files]) {
+        const name = await Fonts.add(f);
+        if (name) last = name;
+      }
+      e.target.value = '';
+      if (last) {
+        document.getElementById('font-family-input').value = last;
+        updateFontPreview(last);
+      }
+      populateFontList(document.getElementById('font-family-input').value);
+    });
+    document.getElementById('font-scan-btn').addEventListener('click', scanAllSystemFonts);
 
     // Some settings appear on more than one tab (e.g. darkMode on Display and
     // Schemes). Keep checkboxes that share a data-key in sync, otherwise apply()

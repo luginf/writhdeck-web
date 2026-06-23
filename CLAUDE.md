@@ -23,6 +23,7 @@ Single-file output built from modular sources in `src/`. All JS shares a single 
 |---|---|---|
 | `schemes.js` | `SCHEMES`, `customSchemes`, `getScheme()`, `getAllSchemeNames()` | — |
 | `db.js` | `DB` (IndexedDB wrapper) | — |
+| `fonts.js` | `Fonts` (user `.ttf`/`.otf` upload + `FontFace` registration) | `DB` |
 | `state.js` | `State`, `loadState()`, `save*()`, helpers | `DB`, `customSchemes` |
 | `ini.js` | `INI` (parser/writer) | — |
 | `highlight.js` | `highlight()`, `wordCount()` | — |
@@ -57,6 +58,14 @@ Settings are persisted as an INI text string (`meta['iniText']`) via `saveSettin
 `applyTheme()` in `app.js` reads `State.settings.{scheme, darkMode}`, gets the scheme object via `getScheme()`, and applies the 8 dark or 8 light colors as CSS custom properties on `:root` (`--bg`, `--fg`, `--bg-bar`, `--fg-bar`, `--bg-sel`, `--heading`, `--comment`, `--markup`, `--bg2`). Font/margin settings are also set as properties.
 
 All CSS uses `var(--*)` — never hardcoded colors. Call `applyTheme()` after any settings change.
+
+### Fonts
+
+`fontFamily` is applied via the `--font-family` CSS custom property (set in `applyTheme()`); it accepts any font name as a free-text string. The Settings → Fonts tab offers three sources, all feeding the same `#font-family-input`:
+1. **Detected system fonts** — `populateFontList()` → `detectFonts()` canvas-measures a curated candidate list (works in every browser, shows a subset only).
+2. **All system fonts** — the "Scan all system fonts" button calls `scanAllSystemFonts()` → `window.queryLocalFonts()` (Local Font Access API, **Chromium only**, prompts for permission); falls back with an alert elsewhere.
+3. **User-uploaded fonts** (`fonts.js`, the `Fonts` module — web counterpart of writhdeck-android's `<configDir>/fonts/` folder) — the "Upload font file…" button accepts `.ttf`/`.otf`/`.woff`/`.woff2`; `Fonts.add(file)` reads the binary, registers it via `new FontFace(name, buffer)` + `document.fonts.add()`, and persists the `ArrayBuffer` in IndexedDB (`meta['userFonts']` = `[{name, data}]`). `Fonts.load()` (called in `init()` before `applyTheme()`) re-registers them on startup. The font name (filename without extension) goes into `font_family` exactly like a system font — no special INI handling. Uploaded fonts show a "(custom)" tag + remove control in the list (`renderFontList()`).
+4. **Watched-folder fonts** (`Fonts.loadFromFolder(rootHandle)` — the web counterpart of android's `docsDir/fonts`) — when a folder is linked via the File System Access API (`State.dirHandle`, Chromium only), its `fonts/` subfolder is scanned and every `.ttf`/`.otf`/`.woff(2)` registered. Called after `scanDir()` at the watched root (in `app.js init()`, and `browser.js`'s `openFolder`/`requestFolderPermission`). These live on disk, so they're re-scanned on each grant rather than persisted in IndexedDB, and are not removable from the UI — shown with a "(folder)" tag.
 
 `getScheme(name)` returns `customSchemes[name] || SCHEMES[name] || SCHEMES.default`. Built-in scheme colors always come from code (`SCHEMES`) — `loadState()` only puts non-built-in schemes into `customSchemes`.
 

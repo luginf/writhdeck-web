@@ -447,9 +447,16 @@ dialog::backdrop { background: rgba(0,0,0,0.5); }
   padding: 3px 8px;
   cursor: pointer;
   white-space: nowrap;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
 }
 .font-item:hover { background: var(--bg-bar); }
 .font-item.selected { background: var(--bg-sel); color: var(--fg); }
+.font-del { color: var(--fg-bar); cursor: pointer; flex-shrink: 0; font-size: 0.9em; }
+.font-del:hover { color: var(--fg); }
+#font-actions { display: flex; gap: 8px; flex-wrap: wrap; margin: 6px 0; }
 
 /* Scheme colors grid */
 #scheme-colors {

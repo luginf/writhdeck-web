@@ -219,7 +219,12 @@
         <span class="hint">Preview:</span>
         <div id="font-preview">The quick brown fox</div>
       </div>
-      <label class="hint-label"><span class="hint">Available system fonts (click to select):</span></label>
+      <div id="font-actions">
+        <button type="button" id="font-upload-btn">Upload font file…</button>
+        <button type="button" id="font-scan-btn">Scan all system fonts</button>
+        <input type="file" id="font-upload-input" accept=".ttf,.otf,.woff,.woff2" multiple hidden>
+      </div>
+      <label class="hint-label"><span class="hint">Available fonts (click to select):</span></label>
       <div id="font-list"></div>
     </div>
 
