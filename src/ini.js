@@ -41,6 +41,7 @@ const INI_TO_SETTINGS = {
   browser_filter:             ['browserFilter',             'str'],
   browser_show_all:           ['browserShowAll',            'bool'],
   browser_subdirs:            ['browserSubdirs',            'bool'],
+  language:                   ['language',                  'str'],
 };
 
 const SETTINGS_TO_INI = Object.fromEntries(
@@ -206,6 +207,8 @@ function writeIni(s, allSchemes, profiles, activeProfile) {
 
   out += '= editor =' + nl + '[editor]' + nl;
   out += `profile              = ${activeProfile || 'default'}` + nl;
+  out += `% language: "auto" follows the browser language; otherwise forces the UI ("en"/"fr"/"es")` + nl;
+  out += `language             = ${s.language || 'auto'}` + nl;
   out += `comment_marker       = ${s.commentMarker   || '% '}` + nl;
   out += `bold_marker          = ${s.boldMarker      || '**'}` + nl;
   out += `italic_marker        = ${s.italicMarker    || '//'}` + nl;

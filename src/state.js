@@ -56,7 +56,10 @@ const State = {
     interceptContextMenu: true,
     browserFilter: '*.txt *.t2t *.md *.ini',
     browserShowAll: false,
-    browserSubdirs: true
+    browserSubdirs: true,
+    // 'auto' = follow navigator.language; otherwise forces the UI to a specific
+    // language regardless of the browser's locale ('en', 'fr', 'es', ...).
+    language: 'auto'
   },
 
   favorites: [],  // [id, ...]

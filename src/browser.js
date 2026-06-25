@@ -18,7 +18,7 @@ const Browser = (() => {
     const localDocs = docs.filter(d => !d.fromDisk).sort((a, b) => b.modified - a.modified);
 
     if (favDocs.length) {
-      section('Favorites', favDocs, list, {});
+      section(t('browser_section_favorites', 'Favorites'), favDocs, list, {});
     }
 
     // writhdeck.ini — always visible
@@ -34,11 +34,11 @@ const Browser = (() => {
       const indiv = diskDocs.filter(d => !d.dirFile);
       const recentDisk = indiv.filter(d => recIds.has(d.id));
       const olderDisk  = indiv.filter(d => !recIds.has(d.id));
-      if (recentDisk.length) section('Recent files', recentDisk, list, { disk: true });
-      if (olderDisk.length)  section('Files from disk', olderDisk, list, { disk: true });
+      if (recentDisk.length) section(t('browser_section_recent_files', 'Recent files'), recentDisk, list, { disk: true });
+      if (olderDisk.length)  section(t('browser_section_files_from_disk', 'Files from disk'), olderDisk, list, { disk: true });
     }
 
-    section('Documents', localDocs, list, { showRecent: id => recIds.has(id) });
+    section(t('browser_section_documents', 'Documents'), localDocs, list, { showRecent: id => recIds.has(id) });
 
     buildShortcutBar();
   }
@@ -53,7 +53,7 @@ const Browser = (() => {
       empty.className = 'br-item';
       empty.style.color = 'var(--fg-bar)';
       empty.style.fontSize = '0.85em';
-      empty.textContent = 'No documents yet. Press n to create one.';
+      empty.textContent = t('browser_no_docs_yet', 'No documents yet. Press n to create one.');
       container.appendChild(empty);
       return;
     }
@@ -72,7 +72,7 @@ const Browser = (() => {
     if (!opts.dirFile) {
       pin.className = 'br-item-pin' + (isFavorite(doc.id) ? ' active' : '');
       pin.textContent = '★';
-      pin.title = isFavorite(doc.id) ? 'Unpin' : 'Pin to favorites';
+      pin.title = isFavorite(doc.id) ? t('browser_unpin', 'Unpin') : t('browser_pin_to_favorites', 'Pin to favorites');
       pin.addEventListener('click', e => {
         e.stopPropagation();
         toggleFavorite(doc.id);
@@ -98,14 +98,14 @@ const Browser = (() => {
     if (opts.disk || doc.fromDisk) {
       const ico = document.createElement('span');
       ico.textContent = '💾';
-      ico.title = 'Linked to a file on disk';
+      ico.title = t('browser_linked_to_file_on_disk', 'Linked to a file on disk');
       ico.style.cssText = 'font-size:0.75em;flex-shrink:0;opacity:0.7;';
       row.appendChild(ico);
     }
     // Subtle dot for recently opened storage docs
     if (opts.showRecent && opts.showRecent(doc.id)) {
       const dot = document.createElement('span');
-      dot.title = 'Recently opened';
+      dot.title = t('browser_recently_opened', 'Recently opened');
       dot.style.cssText = 'width:6px;height:6px;border-radius:50%;background:var(--heading);flex-shrink:0;';
       row.appendChild(dot);
     }
@@ -134,11 +134,12 @@ const Browser = (() => {
     const menu = document.createElement('div');
     menu.style.cssText = `position:fixed;left:${e.clientX}px;top:${e.clientY}px;
       background:var(--bg-bar);border:1px solid var(--fg-bar);z-index:200;min-width:160px;`;
+    const resetLabel = t('browser_reset_to_defaults', 'Reset to defaults');
     const items = [
-      ['Open', openIni],
-      ['Export writhdeck.ini', () => Settings.exportIni()],
-      ['Reset to defaults', async () => {
-        if (!confirm('Reset all settings to defaults?')) return;
+      [t('browser_open', 'Open'), openIni],
+      [t('browser_export_ini', 'Export writhdeck.ini'), () => Settings.exportIni()],
+      [resetLabel, async () => {
+        if (!confirm(t('browser_reset_settings_confirm', 'Reset all settings to defaults?'))) return;
         await DB.setMeta('iniText', null);
         location.reload();
       }]
@@ -147,7 +148,7 @@ const Browser = (() => {
       const btn = document.createElement('button');
       btn.textContent = label;
       btn.style.cssText = 'display:block;width:100%;text-align:left;padding:6px 14px;border:none;background:none;';
-      btn.style.color = label === 'Reset to defaults' ? 'var(--heading)' : 'var(--fg)';
+      btn.style.color = label === resetLabel ? 'var(--heading)' : 'var(--fg)';
       btn.addEventListener('click', () => { hideContextMenu(); fn(); });
       menu.appendChild(btn);
     });
@@ -161,14 +162,14 @@ const Browser = (() => {
     menu.style.cssText = `position:fixed;left:${e.clientX}px;top:${e.clientY}px;
       background:var(--bg-bar);border:1px solid var(--fg-bar);z-index:200;min-width:140px;`;
     const items = [
-      ['Open',          () => Editor.open(doc)],
-      ['Info',          () => document.dispatchEvent(new CustomEvent('writhdeck-show-info',    { detail: doc }))],
-      ['Analyse',       () => document.dispatchEvent(new CustomEvent('writhdeck-show-analyse', { detail: doc }))],
-      ['Rename',        () => renameDoc(doc)],
-      ['Export as .txt',() => exportDocFrom(doc, 'txt')],
-      ['Export as .md', () => exportDocFrom(doc, 'md')],
-      ['Stats',         () => { Stats.show(); }],
-      ['Delete',        () => deleteDoc(doc)]
+      [t('browser_open', 'Open'),          () => Editor.open(doc)],
+      [t('browser_info', 'Info'),          () => document.dispatchEvent(new CustomEvent('writhdeck-show-info',    { detail: doc }))],
+      [t('browser_analyse', 'Analyse'),       () => document.dispatchEvent(new CustomEvent('writhdeck-show-analyse', { detail: doc }))],
+      [t('browser_rename', 'Rename'),        () => renameDoc(doc)],
+      [t('browser_export_as_txt', 'Export as .txt'),() => exportDocFrom(doc, 'txt')],
+      [t('browser_export_as_md', 'Export as .md'), () => exportDocFrom(doc, 'md')],
+      [t('browser_stats', 'Stats'),         () => { Stats.show(); }],
+      [t('browser_delete', 'Delete'),        () => deleteDoc(doc)]
     ];
     items.forEach(([label, fn]) => {
       const btn = document.createElement('button');
@@ -201,14 +202,14 @@ const Browser = (() => {
 
   async function newDoc() {
     const inFolder = hasFSA && !!State.dirHandle;
-    const name = prompt('Document name:', uniqueName('Untitled'));
+    const name = prompt(t('browser_document_name_prompt', 'Document name:'), uniqueName('Untitled'));
     if (!name || !name.trim()) return;
     const trimmed = name.trim();
     const safeName = trimmed.lastIndexOf('.') > 0 ? trimmed : `${trimmed}.txt`;
 
     if (inFolder) {
       if (State.dirFiles.some(f => f.name === safeName)) {
-        alert(`A file named "${safeName}" already exists in this folder.`);
+        alert(t('browser_file_already_exists_in_folder', 'A file named "${safeName}" already exists in this folder.', { safeName }));
         return;
       }
       let fileHandle;
@@ -217,7 +218,7 @@ const Browser = (() => {
         const writable = await fileHandle.createWritable();
         await writable.close();
       } catch (e) {
-        alert(`Could not create "${safeName}": ${e.message}`);
+        alert(t('browser_could_not_create_file', 'Could not create "${safeName}": ${message}', { safeName, message: e.message }));
         return;
       }
       const doc = {
@@ -230,7 +231,7 @@ const Browser = (() => {
       await Editor.open(doc);
     } else {
       if (nameExists(safeName)) {
-        alert(`A document named "${safeName}" already exists.`);
+        alert(t('browser_document_already_exists', 'A document named "${safeName}" already exists.', { safeName }));
         return;
       }
       const doc = { name: safeName, content: '', created: Date.now(), modified: Date.now() };
@@ -242,11 +243,11 @@ const Browser = (() => {
   }
 
   async function renameDoc(doc) {
-    const name = prompt('Rename to:', doc.name);
+    const name = prompt(t('browser_rename_to_prompt', 'Rename to:'), doc.name);
     if (!name || !name.trim() || name.trim() === doc.name) return;
     const trimmed = name.trim();
     if (nameExists(trimmed, doc.id)) {
-      alert(`A document named "${trimmed}" already exists.`);
+      alert(t('browser_document_already_exists', 'A document named "${safeName}" already exists.', { safeName: trimmed }));
       return;
     }
     doc.name = trimmed;
@@ -259,8 +260,8 @@ const Browser = (() => {
 
   async function deleteDoc(doc) {
     const msg = doc.fromDisk
-      ? `Remove "${doc.name}" from Writhdeck?\n\nThe original file on your disk will NOT be deleted — only the copy stored in the browser is removed.`
-      : `Delete "${doc.name}" from browser storage?\n\nThis cannot be undone. The document is stored only in this browser — it is NOT on your disk.`;
+      ? t('browser_remove_from_writhdeck_confirm', 'Remove "${name}" from Writhdeck?\n\nThe original file on your disk will NOT be deleted — only the copy stored in the browser is removed.', { name: doc.name })
+      : t('browser_delete_from_storage_confirm', 'Delete "${name}" from browser storage?\n\nThis cannot be undone. The document is stored only in this browser — it is NOT on your disk.', { name: doc.name });
     if (!confirm(msg)) return;
     await DB.deleteDoc(doc.id);
     State.docs      = State.docs.filter(d => d.id !== doc.id);
@@ -323,24 +324,24 @@ const Browser = (() => {
     const bar = document.getElementById('br-bar');
     bar.innerHTML = '';
     const shortcuts = [
-      ['n', 'new', newDoc],
+      ['n', t('browser_shortcut_new', 'new'), newDoc],
       ...(hasFSA ? [
-        ['w', 'watch folder', openFolder],
-        ['o', 'open file',   openFromDisk]
+        ['w', t('browser_shortcut_watch_folder', 'watch folder'), openFolder],
+        ['o', t('browser_shortcut_open_file', 'open file'),   openFromDisk]
       ] : []),
-      ['Ctrl+O', 'import copy', () => document.getElementById('file-import-input').click()],
-      ['s', 'stats', () => Stats.show()],
-      ['c', 'config', () => Settings.show()],
-      ['r', 'rename',   withFocused(renameDoc)],
-      ['d', 'delete',   withFocused(deleteDoc)],
-      ['b', 'backup',   withFocused(backupDoc)],
-      ['f', 'favorite', withFocused(doc => { toggleFavorite(doc.id); render(); })],
-      ['i', 'info',     withFocused(doc => document.dispatchEvent(new CustomEvent('writhdeck-show-info', { detail: doc })))],
-      ['h', 'help', () => {
+      ['Ctrl+O', t('browser_shortcut_import_copy', 'import copy'), () => document.getElementById('file-import-input').click()],
+      ['s', t('browser_shortcut_stats', 'stats'), () => Stats.show()],
+      ['c', t('browser_shortcut_config', 'config'), () => Settings.show()],
+      ['r', t('browser_shortcut_rename', 'rename'),   withFocused(renameDoc)],
+      ['d', t('browser_shortcut_delete', 'delete'),   withFocused(deleteDoc)],
+      ['b', t('browser_shortcut_backup', 'backup'),   withFocused(backupDoc)],
+      ['f', t('browser_shortcut_favorite', 'favorite'), withFocused(doc => { toggleFavorite(doc.id); render(); })],
+      ['i', t('browser_shortcut_info', 'info'),     withFocused(doc => document.dispatchEvent(new CustomEvent('writhdeck-show-info', { detail: doc })))],
+      ['h', t('browser_shortcut_help', 'help'), () => {
         const d = document.getElementById('br-help-details');
         d.open = !d.open;
       }],
-      ['z', 'reload', () => location.reload()]
+      ['z', t('browser_shortcut_reload', 'reload'), () => location.reload()]
     ];
     shortcuts.forEach(([key, label, fn]) => {
       const sp = document.createElement('span');
@@ -380,7 +381,7 @@ const Browser = (() => {
 
   async function openFolder() {
     if (typeof window.showDirectoryPicker !== 'function') {
-      alert('Directory access requires Chrome, Edge or Brave.\nIf using Brave, check Shields settings.');
+      alert(t('browser_directory_access_requires_chrome', 'Directory access requires Chrome, Edge or Brave.\nIf using Brave, check Shields settings.'));
       return;
     }
     let handle;
@@ -399,7 +400,7 @@ const Browser = (() => {
   }
 
   async function clearFolder() {
-    if (!confirm(`Remove folder "${State.dirHandle.name}" from Writhdeck?\n\nFiles on disk are not affected.`)) return;
+    if (!confirm(t('browser_remove_folder_confirm', 'Remove folder "${name}" from Writhdeck?\n\nFiles on disk are not affected.', { name: State.dirHandle.name }))) return;
     await clearDirHandle();
     render();
   }
@@ -459,7 +460,7 @@ const Browser = (() => {
 
     const clearBtn = document.createElement('span');
     clearBtn.textContent = '✕';
-    clearBtn.title = 'Remove folder';
+    clearBtn.title = t('browser_remove_folder', 'Remove folder');
     clearBtn.style.cssText = 'cursor:pointer;color:var(--fg-bar);font-size:0.8em;padding:0 4px;';
     clearBtn.addEventListener('click', e => { e.stopPropagation(); clearFolder(); });
     hdr.appendChild(clearBtn);
@@ -467,7 +468,7 @@ const Browser = (() => {
 
     // ".." row (only when navigated into a subfolder)
     if (State.settings.browserSubdirs && State.dirStack.length > 1) {
-      container.appendChild(dirNavRow('..', 'Go up one folder',
+      container.appendChild(dirNavRow('..', t('browser_go_up_one_folder', 'Go up one folder'),
         async () => { await dirUp(); render(); }));
     }
     // Subfolder rows
@@ -483,7 +484,7 @@ const Browser = (() => {
           const row = document.createElement('div');
           row.className = 'br-item';
           const btn = document.createElement('button');
-          btn.textContent = 'Re-authorize folder access';
+          btn.textContent = t('browser_reauthorize_folder_access', 'Re-authorize folder access');
           btn.style.cssText = 'font-size:0.85em;margin:4px 0;';
           btn.addEventListener('click', requestFolderPermission);
           row.appendChild(btn);
@@ -493,7 +494,7 @@ const Browser = (() => {
           row.className = 'br-item';
           row.style.color = 'var(--fg-bar)';
           row.style.fontSize = '0.85em';
-          row.textContent = 'No .txt / .md / .tcl files in this folder.';
+          row.textContent = t('browser_no_files_in_folder', 'No .txt / .md / .tcl files in this folder.');
           container.appendChild(row);
         }
       });
@@ -508,14 +509,14 @@ const Browser = (() => {
 
   async function openFromDisk() {
     if (typeof window.showOpenFilePicker !== 'function') {
-      alert('Direct file access is not available in this browser.\n\nUse the ↑ Import button to load a copy of a file, or switch to Chrome/Edge/Brave.\n\nIf you are using Brave, check that Shields fingerprinting protection is not set to "Strict".');
+      alert(t('browser_direct_file_access_unavailable', 'Direct file access is not available in this browser.\n\nUse the ↑ Import button to load a copy of a file, or switch to Chrome/Edge/Brave.\n\nIf you are using Brave, check that Shields fingerprinting protection is not set to "Strict".'));
       return;
     }
     let handles;
     try {
       handles = await window.showOpenFilePicker({
         multiple: true,
-        types: [{ description: 'Text files', accept: { 'text/plain': ['.txt', '.md', '.tcl', '.text'] } }]
+        types: [{ description: t('browser_text_files', 'Text files'), accept: { 'text/plain': ['.txt', '.md', '.tcl', '.text'] } }]
       });
     } catch (e) {
       if (e.name !== 'AbortError') console.error(e);

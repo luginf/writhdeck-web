@@ -21,8 +21,8 @@ const TOC = (() => {
     if (pinBtn) {
       pinBtn.classList.toggle('active', _pinned);
       pinBtn.title = _pinned
-        ? 'Unpin TOC (closes when selecting a chapter)'
-        : 'Pin TOC (stays open when selecting a chapter)';
+        ? t('toc_unpin_title', 'Unpin TOC (closes when selecting a chapter)')
+        : t('toc_pin_title', 'Pin TOC (stays open when selecting a chapter)');
     }
   }
 
@@ -131,7 +131,7 @@ const TOC = (() => {
       const div = document.createElement('div');
       div.className = 'toc-item';
       div.style.color = 'var(--fg-bar)';
-      div.textContent = 'No headings found.';
+      div.textContent = t('toc_no_headings', 'No headings found.');
       list.appendChild(div);
       return;
     }

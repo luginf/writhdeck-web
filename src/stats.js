@@ -8,7 +8,7 @@ const Stats = (() => {
     const daily = State.daily;
     const docs  = State.docs;
     if (!Object.keys(daily).length) {
-      body.innerHTML = '<p style="color:var(--fg-bar);padding:12px">No writing stats yet.</p>';
+      body.innerHTML = `<p style="color:var(--fg-bar);padding:12px">${t('stats_no_stats_yet', 'No writing stats yet.')}</p>`;
       document.getElementById('stats-dlg').showModal();
       return;
     }
@@ -25,11 +25,11 @@ const Stats = (() => {
 
       const table = document.createElement('table');
       table.className = 'stats-table';
-      table.innerHTML = '<tr><th>Date</th><th>Words</th></tr>';
+      table.innerHTML = `<tr><th>${t('stats_header_date', 'Date')}</th><th>${t('stats_header_words', 'Words')}</th></tr>`;
       const today = new Date().toISOString().slice(0, 10);
       Object.entries(days).sort((a,b) => b[0].localeCompare(a[0])).forEach(([date, wc]) => {
         const tr = document.createElement('tr');
-        const suffix = date === today ? ' ← today' : '';
+        const suffix = date === today ? ' ' + t('stats_today_suffix', '← today') : '';
         tr.innerHTML = `<td>${date}${suffix}</td><td>${wc}</td>`;
         table.appendChild(tr);
       });

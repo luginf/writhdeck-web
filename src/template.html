@@ -15,23 +15,23 @@
   <div id="br-header">
     <span id="br-title">Writhdeck</span>
     <div id="br-header-btns">
-      <button id="br-folder-btn"  title="Watch a folder — all files editable in place (w)">📁</button>
-      <button id="br-opendisk-btn" title="Open a file from disk — edit in place (o)">📄</button>
-      <button id="br-import-btn" title="Import copy of file (Ctrl+O)">↑</button>
-      <button id="br-new-btn" title="New document (n)">+</button>
+      <button id="br-folder-btn" data-i18n-title="tpl_browser_folder_btn" title="Watch a folder — all files editable in place (w)">📁</button>
+      <button id="br-opendisk-btn" data-i18n-title="tpl_browser_opendisk_btn" title="Open a file from disk — edit in place (o)">📄</button>
+      <button id="br-import-btn" data-i18n-title="tpl_browser_import_btn" title="Import copy of file (Ctrl+O)">↑</button>
+      <button id="br-new-btn" data-i18n-title="tpl_browser_new_btn" title="New document (n)">+</button>
       <details id="br-help-details">
-        <summary id="br-help-btn" title="Help">?</summary>
+        <summary id="br-help-btn" data-i18n-title="tpl_browser_help_btn" title="Help">?</summary>
         <div id="br-help-menu">
   <div id="br-help-logo-wrap">
     <img id="br-help-logo" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAGAAAABgCAQAAABIkb+zAAAAw3pUWHRSYXcgcHJvZmlsZSB0eXBlIGV4aWYAAHjabVBRDsMgCP3nFDuCAiIeh65dshvs+EOlTdv0JT6BR54IbL/vB14dmBm4VJUmkhzcuKF5oGnCBufEgwckJM8vdTgE9BL5TTPVEPJez4fBvMyjcjLSdwjLVWgc/nozioeoT4QerGHUwohwCjkMzOIrTev5C8uWrtB5oBPV4X2Y3HOuvr21eJEQN8qUnIlkDkD9CJB5IINLb/QG89bOhfZJfCFPe9oBf+ptWSIIGeL0AAABI2lDQ1BJQ0MgcHJvZmlsZQAAeJydkL9Kw1AUxn+pWkXq5J9BHDLo2NFMDlaFICjEWMHqlCYpFpMYkpTiG/gm+jAdBMGHcFRw9rvRwcEsXjh8Pw7nfN+9F1p2Eqbl/D6kWVW4fm9wObiyF99os8A6HXaCsMx7nndC4/l8xTL60jVezXN/nnYUl6F0psrCvKjA2hM70yo3rGLttu8fih/EdpRmkfhJvB2lkWGz66fJJPzxNLfpxNnFuemrtnA55hQPmyETxiRUdKWZOkc47EpdCgLuKQmlCbF6U81U3IhKObkciPoi3aYhb7PO85QylMdYXibhjlSeJg/zv99rH2f1prUxy4MiqFtzqtZoBO+PsDKA1WdYvm7IWvr9toYZp5755xu/APYmUGsqZCvqAAAOW2lUWHRYTUw6Y29tLmFkb2JlLnhtcAAAAAAAPD94cGFja2V0IGJlZ2luPSLvu78iIGlkPSJXNU0wTXBDZWhpSHpyZVN6TlRjemtjOWQiPz4KPHg6eG1wbWV0YSB4bWxuczp4PSJhZG9iZTpuczptZXRhLyIgeDp4bXB0az0iWE1QIENvcmUgNC40LjAtRXhpdjIiPgogPHJkZjpSREYgeG1sbnM6cmRmPSJodHRwOi8vd3d3LnczLm9yZy8xOTk5LzAyLzIyLXJkZi1zeW50YXgtbnMjIj4KICA8cmRmOkRlc2NyaXB0aW9uIHJkZjphYm91dD0iIgogICAgeG1sbnM6eG1wTU09Imh0dHA6Ly9ucy5hZG9iZS5jb20veGFwLzEuMC9tbS8iCiAgICB4bWxuczpzdEV2dD0iaHR0cDovL25zLmFkb2JlLmNvbS94YXAvMS4wL3NUeXBlL1Jlc291cmNlRXZlbnQjIgogICAgeG1sbnM6ZGM9Imh0dHA6Ly9wdXJsLm9yZy9kYy9lbGVtZW50cy8xLjEvIgogICAgeG1sbnM6R0lNUD0iaHR0cDovL3d3dy5naW1wLm9yZy94bXAvIgogICAgeG1sbnM6dGlmZj0iaHR0cDovL25zLmFkb2JlLmNvbS90aWZmLzEuMC8iCiAgICB4bWxuczp4bXA9Imh0dHA6Ly9ucy5hZG9iZS5jb20veGFwLzEuMC8iCiAgIHhtcE1NOkRvY3VtZW50SUQ9ImdpbXA6ZG9jaWQ6Z2ltcDplZjBhMzc3Yi0wZDI4LTQwZWEtOTBkMi1kZmZhNDQ2NzdjYmUiCiAgIHhtcE1NOkluc3RhbmNlSUQ9InhtcC5paWQ6OTIwMzQ1ZTAtMTBkMS00NmI3LWE3MjYtYTU2M2I1YmZjYjZjIgogICB4bXBNTTpPcmlnaW5hbERvY3VtZW50SUQ9InhtcC5kaWQ6NDY4NjQzNWItMWY0MS00MmQ4LWI2ZDgtZjYyZTEwODhiZDcwIgogICBkYzpGb3JtYXQ9ImltYWdlL3BuZyIKICAgR0lNUDpBUEk9IjIuMCIKICAgR0lNUDpQbGF0Zm9ybT0iTGludXgiCiAgIEdJTVA6VGltZVN0YW1wPSIxNzgwNjk0MDM0MzYyNzU0IgogICBHSU1QOlZlcnNpb249IjIuMTAuMzYiCiAgIHRpZmY6T3JpZW50YXRpb249IjEiCiAgIHhtcDpDcmVhdG9yVG9vbD0iR0lNUCAyLjEwIgogICB4bXA6TWV0YWRhdGFEYXRlPSIyMDI2OjA2OjA1VDIzOjEzOjU0KzAyOjAwIgogICB4bXA6TW9kaWZ5RGF0ZT0iMjAyNjowNjowNVQyMzoxMzo1NCswMjowMCI+CiAgIDx4bXBNTTpIaXN0b3J5PgogICAgPHJkZjpTZXE+CiAgICAgPHJkZjpsaQogICAgICBzdEV2dDphY3Rpb249InNhdmVkIgogICAgICBzdEV2dDpjaGFuZ2VkPSIvIgogICAgICBzdEV2dDppbnN0YW5jZUlEPSJ4bXAuaWlkOjE0Yjc3ZjU1LTBhOTQtNDY1OC1iZDZjLWY0ODVkZjNhOGY0ZSIKICAgICAgc3RFdnQ6c29mdHdhcmVBZ2VudD0iR2ltcCAyLjEwIChMaW51eCkiCiAgICAgIHN0RXZ0OndoZW49IjIwMjYtMDUtMTFUMDk6Mjk6MjcrMDI6MDAiLz4KICAgICA8cmRmOmxpCiAgICAgIHN0RXZ0OmFjdGlvbj0ic2F2ZWQiCiAgICAgIHN0RXZ0OmNoYW5nZWQ9Ii8iCiAgICAgIHN0RXZ0Omluc3RhbmNlSUQ9InhtcC5paWQ6Nzc1NGU1NzQtZDlmOS00N2M0LWIxZGUtZTUwZGNhN2Y2ZDRjIgogICAgICBzdEV2dDpzb2Z0d2FyZUFnZW50PSJHaW1wIDIuMTAgKExpbnV4KSIKICAgICAgc3RFdnQ6d2hlbj0iMjAyNi0wNi0wNVQyMzoxMzo1NCswMjowMCIvPgogICAgPC9yZGY6U2VxPgogICA8L3htcE1NOkhpc3Rvcnk+CiAgPC9yZGY6RGVzY3JpcHRpb24+CiA8L3JkZjpSREY+CjwveDp4bXBtZXRhPgogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAKICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIAogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAKICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIAogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAKICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIAogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAKICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIAogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAKICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIAogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAKICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIAogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAKICAgICAgICAgICAgICAgICAgICAgICAgICAgCjw/eHBhY2tldCBlbmQ9InciPz7YPx0fAAAACXBIWXMAAAsTAAALEwEAmpwYAAAAB3RJTUUH6gYFFQ02o2wdmQAAA8xJREFUeNrtW2tuwyAMLohT5Hw9Vs7Xc+wHQgnBb5uQSWHSprYMvs/4hZ1+Pu94xzvesXKk6AW3nfr0930ogR42DbPOjaKS4qBrIW17BI0UAd4DY9t9JNI66MtU6DngTQRiTfBmAs+SvZrA02SvIvBE2SsI3C37bf99paExPQs+nohg+6f/AJ/aPT8D/rbb4DMncCd8a/aa18Jvku93OV5t+7bTCXpaB/8M7PA6V//DYcj3Xj8wAR2vaHmPo8zM1XVjlL0EQ1qvPiN4zc6Jh8/p5PVKwkEZdR+SvZRI4bX/rJmSJdt8eG6fJlDwZSPLfDIO3BZ+aM3XrJAj4EolePXpkNf5feuPdJ8ij4nQZx5C9IoQBei9HOP9JcGnzWlOgqKJYRj/p8glV7e8+hybCcrzfY5Y8cgfrunwqjaSlnu56545IoJy3r/flDozPnkjbIBPH0ao948rfccJyBWor6ByAtA5kWyDTp0MnljEwEdsQJZ/4hmShC4FHw9ftACL13jpJBy+tOAJvD4GFav+a+P0CC0mXc9WuUs8Nvda6zIJAv6FKiGMFq4+lYZu//NqOSKcy6/suAFbBVeiDDjOFdxCQAOFK5T4umRlhtQ49bFlooGRODa38TnyCQTOVQ3efG+PAxoavy+l3x7fM8WIYRL2Tv6iE8ANNCLu3nACfRnMfnVcaAN93W1uGJxCgEr3NFm/bJcyQ/q+audyL9RXnI+/cwjkSK3sa81VWWbAR66U3kePGtCzAs3v8pR4H6RJ9fzeqczyQZJI0Yc5TWfumJXjDrvJ3tYgbO6V91/9jGK/WmA1OLso4Pr3BBWCPEvdtnXArCT0FIr86g2pCqR8jcjMNB1NJSwFw1oWaaYZk3PK18hWNwYXFv3XFMljy04baFreF3qPo539mEK/dhnByZrZ8p7lrMuS8QSafK+F9rNh+zyRTsWyTLZnD9TPgK6Q46xZ8ldeaKqXPysZfkUcH520xxjKxLNUv5tv5zroxxlYKegca8FMFO+VjzkL1AfzpRTycyka9TnDkmaNEfkVtWPWuEmqbAVB0CoQ1iej1ilW2TUth9+lHmSlgOGdZwxL1gYrCn6jTUPHsyU9fMYGqMIs9mlsJ54vCeQodwZdaLyxWFLRyHLXxhWtmt73ZmwnISvIGE4ANlHMKubCVxM4ro3tJNrv0Xw9speXw5JW+vJH+qwKpCvBJ70CSWOmBb6+fzDpi3C2+4Cl/RH6XUpPTdTau0kRvsJntr5ScPg3uu8EH0bA0gOIcbihJ8BL0/INjSUqFPtg5Tve8Q5q/AGEcnBTH2q81QAAAABJRU5ErkJggg==" alt="Writhdeck">
   </div>
-  <button id="br-help-about">About</button>
+  <button id="br-help-about" data-i18n="tpl_browser_help_about">About</button>
   <div class="more-sep"></div>
   <button id="br-help-readme">README.md</button>
   <div class="more-sep"></div>
-  <a id="br-help-source" href="https://github.com/luginf/writhdeck-web/" target="_blank" rel="noopener">source code ↗</a>
+  <a id="br-help-source" href="https://github.com/luginf/writhdeck-web/" target="_blank" rel="noopener" data-i18n="tpl_browser_help_source">source code ↗</a>
   <div class="more-sep"></div>
-  <button id="br-help-settings">Settings</button>
+  <button id="br-help-settings" data-i18n="tpl_browser_help_settings">Settings</button>
         </div>
       </details>
     </div>
@@ -43,18 +43,18 @@
 <!-- About dialog -->
 <dialog id="about-dlg">
   <div id="about-header">
-    <button id="about-close">✕</button>
+    <button id="about-close" data-i18n-title="tpl_dialog_close_btn" title="Close">✕</button>
   </div>
   <div id="about-body">
     <img id="about-logo" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAGAAAABgCAQAAABIkb+zAAAAw3pUWHRSYXcgcHJvZmlsZSB0eXBlIGV4aWYAAHjabVBRDsMgCP3nFDuCAiIeh65dshvs+EOlTdv0JT6BR54IbL/vB14dmBm4VJUmkhzcuKF5oGnCBufEgwckJM8vdTgE9BL5TTPVEPJez4fBvMyjcjLSdwjLVWgc/nozioeoT4QerGHUwohwCjkMzOIrTev5C8uWrtB5oBPV4X2Y3HOuvr21eJEQN8qUnIlkDkD9CJB5IINLb/QG89bOhfZJfCFPe9oBf+ptWSIIGeL0AAABI2lDQ1BJQ0MgcHJvZmlsZQAAeJydkL9Kw1AUxn+pWkXq5J9BHDLo2NFMDlaFICjEWMHqlCYpFpMYkpTiG/gm+jAdBMGHcFRw9rvRwcEsXjh8Pw7nfN+9F1p2Eqbl/D6kWVW4fm9wObiyF99os8A6HXaCsMx7nndC4/l8xTL60jVezXN/nnYUl6F0psrCvKjA2hM70yo3rGLttu8fih/EdpRmkfhJvB2lkWGz66fJJPzxNLfpxNnFuemrtnA55hQPmyETxiRUdKWZOkc47EpdCgLuKQmlCbF6U81U3IhKObkciPoi3aYhb7PO85QylMdYXibhjlSeJg/zv99rH2f1prUxy4MiqFtzqtZoBO+PsDKA1WdYvm7IWvr9toYZp5755xu/APYmUGsqZCvqAAAOW2lUWHRYTUw6Y29tLmFkb2JlLnhtcAAAAAAAPD94cGFja2V0IGJlZ2luPSLvu78iIGlkPSJXNU0wTXBDZWhpSHpyZVN6TlRjemtjOWQiPz4KPHg6eG1wbWV0YSB4bWxuczp4PSJhZG9iZTpuczptZXRhLyIgeDp4bXB0az0iWE1QIENvcmUgNC40LjAtRXhpdjIiPgogPHJkZjpSREYgeG1sbnM6cmRmPSJodHRwOi8vd3d3LnczLm9yZy8xOTk5LzAyLzIyLXJkZi1zeW50YXgtbnMjIj4KICA8cmRmOkRlc2NyaXB0aW9uIHJkZjphYm91dD0iIgogICAgeG1sbnM6eG1wTU09Imh0dHA6Ly9ucy5hZG9iZS5jb20veGFwLzEuMC9tbS8iCiAgICB4bWxuczpzdEV2dD0iaHR0cDovL25zLmFkb2JlLmNvbS94YXAvMS4wL3NUeXBlL1Jlc291cmNlRXZlbnQjIgogICAgeG1sbnM6ZGM9Imh0dHA6Ly9wdXJsLm9yZy9kYy9lbGVtZW50cy8xLjEvIgogICAgeG1sbnM6R0lNUD0iaHR0cDovL3d3dy5naW1wLm9yZy94bXAvIgogICAgeG1sbnM6dGlmZj0iaHR0cDovL25zLmFkb2JlLmNvbS90aWZmLzEuMC8iCiAgICB4bWxuczp4bXA9Imh0dHA6Ly9ucy5hZG9iZS5jb20veGFwLzEuMC8iCiAgIHhtcE1NOkRvY3VtZW50SUQ9ImdpbXA6ZG9jaWQ6Z2ltcDplZjBhMzc3Yi0wZDI4LTQwZWEtOTBkMi1kZmZhNDQ2NzdjYmUiCiAgIHhtcE1NOkluc3RhbmNlSUQ9InhtcC5paWQ6OTIwMzQ1ZTAtMTBkMS00NmI3LWE3MjYtYTU2M2I1YmZjYjZjIgogICB4bXBNTTpPcmlnaW5hbERvY3VtZW50SUQ9InhtcC5kaWQ6NDY4NjQzNWItMWY0MS00MmQ4LWI2ZDgtZjYyZTEwODhiZDcwIgogICBkYzpGb3JtYXQ9ImltYWdlL3BuZyIKICAgR0lNUDpBUEk9IjIuMCIKICAgR0lNUDpQbGF0Zm9ybT0iTGludXgiCiAgIEdJTVA6VGltZVN0YW1wPSIxNzgwNjk0MDM0MzYyNzU0IgogICBHSU1QOlZlcnNpb249IjIuMTAuMzYiCiAgIHRpZmY6T3JpZW50YXRpb249IjEiCiAgIHhtcDpDcmVhdG9yVG9vbD0iR0lNUCAyLjEwIgogICB4bXA6TWV0YWRhdGFEYXRlPSIyMDI2OjA2OjA1VDIzOjEzOjU0KzAyOjAwIgogICB4bXA6TW9kaWZ5RGF0ZT0iMjAyNjowNjowNVQyMzoxMzo1NCswMjowMCI+CiAgIDx4bXBNTTpIaXN0b3J5PgogICAgPHJkZjpTZXE+CiAgICAgPHJkZjpsaQogICAgICBzdEV2dDphY3Rpb249InNhdmVkIgogICAgICBzdEV2dDpjaGFuZ2VkPSIvIgogICAgICBzdEV2dDppbnN0YW5jZUlEPSJ4bXAuaWlkOjE0Yjc3ZjU1LTBhOTQtNDY1OC1iZDZjLWY0ODVkZjNhOGY0ZSIKICAgICAgc3RFdnQ6c29mdHdhcmVBZ2VudD0iR2ltcCAyLjEwIChMaW51eCkiCiAgICAgIHN0RXZ0OndoZW49IjIwMjYtMDUtMTFUMDk6Mjk6MjcrMDI6MDAiLz4KICAgICA8cmRmOmxpCiAgICAgIHN0RXZ0OmFjdGlvbj0ic2F2ZWQiCiAgICAgIHN0RXZ0OmNoYW5nZWQ9Ii8iCiAgICAgIHN0RXZ0Omluc3RhbmNlSUQ9InhtcC5paWQ6Nzc1NGU1NzQtZDlmOS00N2M0LWIxZGUtZTUwZGNhN2Y2ZDRjIgogICAgICBzdEV2dDpzb2Z0d2FyZUFnZW50PSJHaW1wIDIuMTAgKExpbnV4KSIKICAgICAgc3RFdnQ6d2hlbj0iMjAyNi0wNi0wNVQyMzoxMzo1NCswMjowMCIvPgogICAgPC9yZGY6U2VxPgogICA8L3htcE1NOkhpc3Rvcnk+CiAgPC9yZGY6RGVzY3JpcHRpb24+CiA8L3JkZjpSREY+CjwveDp4bXBtZXRhPgogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAKICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIAogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAKICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIAogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAKICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIAogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAKICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIAogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAKICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIAogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAKICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIAogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAKICAgICAgICAgICAgICAgICAgICAgICAgICAgCjw/eHBhY2tldCBlbmQ9InciPz7YPx0fAAAACXBIWXMAAAsTAAALEwEAmpwYAAAAB3RJTUUH6gYFFQ02o2wdmQAAA8xJREFUeNrtW2tuwyAMLohT5Hw9Vs7Xc+wHQgnBb5uQSWHSprYMvs/4hZ1+Pu94xzvesXKk6AW3nfr0930ogR42DbPOjaKS4qBrIW17BI0UAd4DY9t9JNI66MtU6DngTQRiTfBmAs+SvZrA02SvIvBE2SsI3C37bf99paExPQs+nohg+6f/AJ/aPT8D/rbb4DMncCd8a/aa18Jvku93OV5t+7bTCXpaB/8M7PA6V//DYcj3Xj8wAR2vaHmPo8zM1XVjlL0EQ1qvPiN4zc6Jh8/p5PVKwkEZdR+SvZRI4bX/rJmSJdt8eG6fJlDwZSPLfDIO3BZ+aM3XrJAj4EolePXpkNf5feuPdJ8ij4nQZx5C9IoQBei9HOP9JcGnzWlOgqKJYRj/p8glV7e8+hybCcrzfY5Y8cgfrunwqjaSlnu56545IoJy3r/flDozPnkjbIBPH0ao948rfccJyBWor6ByAtA5kWyDTp0MnljEwEdsQJZ/4hmShC4FHw9ftACL13jpJBy+tOAJvD4GFav+a+P0CC0mXc9WuUs8Nvda6zIJAv6FKiGMFq4+lYZu//NqOSKcy6/suAFbBVeiDDjOFdxCQAOFK5T4umRlhtQ49bFlooGRODa38TnyCQTOVQ3efG+PAxoavy+l3x7fM8WIYRL2Tv6iE8ANNCLu3nACfRnMfnVcaAN93W1uGJxCgEr3NFm/bJcyQ/q+audyL9RXnI+/cwjkSK3sa81VWWbAR66U3kePGtCzAs3v8pR4H6RJ9fzeqczyQZJI0Yc5TWfumJXjDrvJ3tYgbO6V91/9jGK/WmA1OLso4Pr3BBWCPEvdtnXArCT0FIr86g2pCqR8jcjMNB1NJSwFw1oWaaYZk3PK18hWNwYXFv3XFMljy04baFreF3qPo539mEK/dhnByZrZ8p7lrMuS8QSafK+F9rNh+zyRTsWyTLZnD9TPgK6Q46xZ8ldeaKqXPysZfkUcH520xxjKxLNUv5tv5zroxxlYKegca8FMFO+VjzkL1AfzpRTycyka9TnDkmaNEfkVtWPWuEmqbAVB0CoQ1iej1ilW2TUth9+lHmSlgOGdZwxL1gYrCn6jTUPHsyU9fMYGqMIs9mlsJ54vCeQodwZdaLyxWFLRyHLXxhWtmt73ZmwnISvIGE4ANlHMKubCVxM4ro3tJNrv0Xw9speXw5JW+vJH+qwKpCvBJ70CSWOmBb6+fzDpi3C2+4Cl/RH6XUpPTdTau0kRvsJntr5ScPg3uu8EH0bA0gOIcbihJ8BL0/INjSUqFPtg5Tve8Q5q/AGEcnBTH2q81QAAAABJRU5ErkJggg==" alt="Writhdeck logo">
-    <p class="about-title">About Writhdeck</p>
-    <p>Writhdeck is a distraction-free writing environment for long-form text — novels, essays, notes, scripts.</p>
-    <p>All your documents live in your browser (IndexedDB) — nothing is sent to any server. You can also edit files directly on disk.</p>
-    <p>It features a custom colour-syntax overlay, typewriter focus mode, a session timer, daily word goals, and a fully keyboard-driven interface. Compatible with the Writhdeck desktop app via shared <code>.ini</code> settings.</p>
-    <p class="about-version">Build: {{BUILD_DATE}} — Open source — <a href="https://github.com/luginf/writhdeck-web/" target="_blank" rel="noopener">github.com/luginf/writhdeck-web</a></p>
+    <p class="about-title" data-i18n="tpl_about_title">About Writhdeck</p>
+    <p data-i18n="tpl_about_p1">Writhdeck is a distraction-free writing environment for long-form text — novels, essays, notes, scripts.</p>
+    <p data-i18n="tpl_about_p2">All your documents live in your browser (IndexedDB) — nothing is sent to any server. You can also edit files directly on disk.</p>
+    <p data-i18n="tpl_about_p3">It features a custom colour-syntax overlay, typewriter focus mode, a session timer, daily word goals, and a fully keyboard-driven interface. Compatible with the Writhdeck desktop app via shared <code>.ini</code> settings.</p>
+    <p class="about-version"><span data-i18n="tpl_about_build">Build:</span> {{BUILD_DATE}} — <span data-i18n="tpl_about_opensource">Open source</span> — <a href="https://github.com/luginf/writhdeck-web/" target="_blank" rel="noopener">github.com/luginf/writhdeck-web</a></p>
   </div>
   <div id="about-footer">
-    <button id="about-ok">Close</button>
+    <button id="about-ok" data-i18n="tpl_about_close">Close</button>
   </div>
 </dialog>
 
@@ -66,8 +66,8 @@
 <div id="editor" hidden>
   <div id="ed-header">
     <div id="ed-actions">
-      <button id="ed-menu-btn" title="Menu">≡</button>
-      <button id="ed-close-btn" title="Quit">✕</button>
+      <button id="ed-menu-btn" data-i18n-title="tpl_editor_menu_btn" title="Menu">≡</button>
+      <button id="ed-close-btn" data-i18n-title="tpl_editor_close_btn" title="Quit">✕</button>
     </div>
   </div>
   <div id="ed-body">
@@ -79,26 +79,26 @@
     <!-- TOC side panel -->
     <div id="toc-panel">
       <div id="toc-panel-header">
-        <span id="toc-panel-title">Contents</span>
-        <span id="toc-pin-btn" class="toc-pin-btn" title="Pin TOC (stays open when selecting a chapter)">📌</span>
+        <span id="toc-panel-title" data-i18n="tpl_toc_title">Contents</span>
+        <span id="toc-pin-btn" class="toc-pin-btn" data-i18n-title="tpl_toc_pin_btn" title="Pin TOC (stays open when selecting a chapter)">📌</span>
       </div>
       <div id="toc-list" tabindex="-1"></div>
     </div>
   </div>
   <div id="search-bar" hidden>
-    <label>Find: <input id="search-input" type="text" autocomplete="off"></label>
+    <label><span data-i18n="tpl_search_find_label">Find:</span> <input id="search-input" type="text" autocomplete="off"></label>
     <span id="search-count"></span>
-    <button id="search-prev">▲</button>
-    <button id="search-next">▼</button>
-    <label id="replace-row" hidden>Replace: <input id="replace-input" type="text" autocomplete="off"></label>
-    <button id="replace-one" hidden>Replace</button>
-    <button id="replace-all" hidden>All</button>
-    <button id="search-close">✕</button>
+    <button id="search-prev" data-i18n-title="tpl_search_prev_btn" title="Previous match">▲</button>
+    <button id="search-next" data-i18n-title="tpl_search_next_btn" title="Next match">▼</button>
+    <label id="replace-row" hidden><span data-i18n="tpl_search_replace_label">Replace:</span> <input id="replace-input" type="text" autocomplete="off"></label>
+    <button id="replace-one" hidden data-i18n="tpl_search_replace_btn">Replace</button>
+    <button id="replace-all" hidden data-i18n="tpl_search_replace_all_btn">All</button>
+    <button id="search-close" data-i18n-title="tpl_search_close_btn" title="Close">✕</button>
   </div>
   <div id="goto-bar" hidden>
-    <label>Line: <input id="goto-input" type="number" min="1" autocomplete="off"></label>
-    <button id="goto-go">Go</button>
-    <button id="goto-close">✕</button>
+    <label><span data-i18n="tpl_goto_line_label">Line:</span> <input id="goto-input" type="number" min="1" autocomplete="off"></label>
+    <button id="goto-go" data-i18n="tpl_goto_go_btn">Go</button>
+    <button id="goto-close" data-i18n-title="tpl_goto_close_btn" title="Close">✕</button>
   </div>
   <div id="ed-bar">
     <span id="ed-bar-left"></span>
@@ -109,24 +109,26 @@
 
 <!-- Main editor menu -->
 <div id="ed-menu" hidden>
-  <button id="ed-more-cmd">⌨ Command mode <span class="hint">Esc / Alt+C</span></button>
-  <button data-cmd="save">💾 Save <span class="hint">Ctrl+S</span></button>
-  <button data-cmd="save-as">Save as… <span class="hint">Ctrl+Shift+S</span></button>
-  <button data-cmd="close">Quit <span class="hint">Ctrl+Shift+Q</span></button>
-  <button data-cmd="browser">Browser</button>
+  <button id="ed-more-cmd">⌨ <span data-i18n="tpl_menu_command_mode">Command mode</span> <span class="hint">Esc / Alt+C</span></button>
+  <button data-cmd="config"><span data-i18n="tpl_menu_settings">Settings</span> <span class="hint">c</span></button>
   <div class="more-sep"></div>
-  <div class="more-label">View</div>
-  <button data-cmd="toc">Table of contents <span class="hint">o</span></button>
-  <button data-cmd="dark">Dark / light <span class="hint">d</span></button>
-  <button data-cmd="linenos">Line numbers <span class="hint">n</span></button>
-  <button data-cmd="typewriter">Typewriter <span class="hint">w</span></button>
+  <button data-cmd="save">💾 <span data-i18n="tpl_menu_save">Save</span> <span class="hint">Ctrl+S</span></button>
+  <button data-cmd="save-as"><span data-i18n="tpl_menu_save_as">Save as…</span> <span class="hint">Ctrl+Shift+S</span></button>
+  <button data-cmd="close"><span data-i18n="tpl_menu_quit">Quit</span> <span class="hint">Ctrl+Shift+Q</span></button>
+  <button data-cmd="browser" data-i18n="tpl_menu_browser">Browser</button>
   <div class="more-sep"></div>
-  <div class="more-label">Search</div>
-  <button data-cmd="find">Find <span class="hint">f</span></button>
-  <button data-cmd="replace">Find &amp; Replace <span class="hint">r</span></button>
-  <button data-cmd="goto">Go to line <span class="hint">g</span></button>
+  <div class="more-label" data-i18n="tpl_menu_section_view">View</div>
+  <button data-cmd="toc"><span data-i18n="tpl_menu_toc">Table of contents</span> <span class="hint">o</span></button>
+  <button data-cmd="dark"><span data-i18n="tpl_menu_dark_light">Dark / light</span> <span class="hint">d</span></button>
+  <button data-cmd="linenos"><span data-i18n="tpl_menu_linenos">Line numbers</span> <span class="hint">n</span></button>
+  <button data-cmd="typewriter"><span data-i18n="tpl_menu_typewriter">Typewriter</span> <span class="hint">w</span></button>
   <div class="more-sep"></div>
-  <div class="more-label">Format</div>
+  <div class="more-label" data-i18n="tpl_menu_section_search">Search</div>
+  <button data-cmd="find"><span data-i18n="tpl_menu_find">Find</span> <span class="hint">f</span></button>
+  <button data-cmd="replace"><span data-i18n="tpl_menu_find_replace">Find &amp; Replace</span> <span class="hint">r</span></button>
+  <button data-cmd="goto"><span data-i18n="tpl_menu_goto_line">Go to line</span> <span class="hint">g</span></button>
+  <div class="more-sep"></div>
+  <div class="more-label" data-i18n="tpl_menu_section_format">Format</div>
   <button data-markup="h1"></button>
   <button data-markup="h2"></button>
   <button data-markup="h3"></button>
@@ -136,157 +138,167 @@
   <button data-markup="underline"></button>
   <button data-markup="strike"></button>
   <div class="more-sep"></div>
-  <div class="more-label">Document</div>
-  <button data-cmd="export-txt">Export as .txt <span class="hint">e</span></button>
-  <button data-cmd="export-md">Export as .md</button>
-  <button data-cmd="stats">Statistics <span class="hint">s</span></button>
-  <button data-cmd="analyse">Analyse <span class="hint">a</span></button>
-  <button data-cmd="word-occ">Word occurrences</button>
-  <button data-cmd="info">File info <span class="hint">i</span></button>
+  <div class="more-label" data-i18n="tpl_menu_section_document">Document</div>
+  <button data-cmd="export-txt"><span data-i18n="tpl_menu_export_txt">Export as .txt</span> <span class="hint">e</span></button>
+  <button data-cmd="export-md" data-i18n="tpl_menu_export_md">Export as .md</button>
+  <button data-cmd="stats"><span data-i18n="tpl_menu_statistics">Statistics</span> <span class="hint">s</span></button>
+  <button data-cmd="analyse"><span data-i18n="tpl_menu_analyse">Analyse</span> <span class="hint">a</span></button>
+  <button data-cmd="word-occ" data-i18n="tpl_menu_word_occ">Word occurrences</button>
+  <button data-cmd="info"><span data-i18n="tpl_menu_file_info">File info</span> <span class="hint">i</span></button>
   <div class="more-sep"></div>
-  <div class="more-label">App</div>
-  <button data-cmd="timer">Timer <span class="hint">t</span></button>
-  <button data-cmd="block-cursor">Block cursor</button>
-  <button data-cmd="ctx-menu">Right-click menu</button>
-  <button data-cmd="config">Settings <span class="hint">c</span></button>
+  <div class="more-label" data-i18n="tpl_menu_section_app">App</div>
+  <button data-cmd="timer"><span data-i18n="tpl_menu_timer">Timer</span> <span class="hint">t</span></button>
+  <button data-cmd="block-cursor" data-i18n="tpl_menu_block_cursor">Block cursor</button>
+  <button data-cmd="ctx-menu" data-i18n="tpl_menu_ctx_menu">Right-click menu</button>
 </div>
 
 <!-- Settings dialog -->
 <dialog id="settings-dlg">
   <div id="settings-tabs">
-    <button class="stab active" data-tab="profile">Profile</button>
-    <button class="stab" data-tab="display">Display</button>
-    <button class="stab" data-tab="fonts">Fonts</button>
-    <button class="stab" data-tab="schemes">Schemes</button>
-    <button class="stab" data-tab="timer">Timer</button>
-    <button class="stab" data-tab="misc">Misc</button>
+    <button class="stab active" data-tab="profile" data-i18n="tpl_settings_tab_profile">Profile</button>
+    <button class="stab" data-tab="display" data-i18n="tpl_settings_tab_display">Display</button>
+    <button class="stab" data-tab="fonts" data-i18n="tpl_settings_tab_fonts">Fonts</button>
+    <button class="stab" data-tab="schemes" data-i18n="tpl_settings_tab_schemes">Schemes</button>
+    <button class="stab" data-tab="timer" data-i18n="tpl_settings_tab_timer">Timer</button>
+    <button class="stab" data-tab="misc" data-i18n="tpl_settings_tab_misc">Misc</button>
   </div>
   <div id="settings-body">
 
     <!-- Profile tab -->
     <div class="stab-content active" data-tab="profile">
       <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-        <label>Profile <select id="profile-select"></select></label>
-        <button id="profile-new-btn">New</button>
-        <button id="profile-delete-btn">Delete</button>
+        <label><span data-i18n="tpl_settings_profile_label">Profile</span> <select id="profile-select"></select></label>
+        <button id="profile-new-btn" data-i18n="tpl_settings_profile_new_btn">New</button>
+        <button id="profile-delete-btn" data-i18n="tpl_settings_profile_delete_btn">Delete</button>
       </div>
-      <p class="hint">Margins, fonts, scheme, dark mode, word goal, line numbers, block cursor,
+      <p class="hint" data-i18n="tpl_settings_profile_hint">Margins, fonts, scheme, dark mode, word goal, line numbers, block cursor,
         heading marker and markdown headings are saved per profile.</p>
-      <label>Default scheme
+      <label><span data-i18n="tpl_settings_profile_default_scheme">Default scheme</span>
         <select data-key="scheme" id="scheme-select-profile"></select>
       </label>
-      <label><input type="checkbox" data-key="darkMode"> Dark mode</label>
-      <label>Margin horiz (px)<input type="number" data-key="marginX" min="0" max="400"></label>
-      <label>Margin vert (px)<input type="number" data-key="marginY" min="0" max="400"></label>
-      <label>Line spacing<input type="number" data-key="lineSpacing" min="0.8" max="3.0" step="0.1"></label>
-      <label>Word goal (words/day, 0=off)<input type="number" data-key="wordGoal" min="0"></label>
-      <label><input type="checkbox" data-key="hemingwayMode"> Hemingway mode (no delete)</label>
+      <label><input type="checkbox" data-key="darkMode"> <span data-i18n="tpl_settings_profile_dark_mode">Dark mode</span></label>
+      <label><span data-i18n="tpl_settings_profile_margin_x">Margin horiz (px)</span><input type="number" data-key="marginX" min="0" max="400"></label>
+      <label><span data-i18n="tpl_settings_profile_margin_y">Margin vert (px)</span><input type="number" data-key="marginY" min="0" max="400"></label>
+      <label><span data-i18n="tpl_settings_profile_line_spacing">Line spacing</span><input type="number" data-key="lineSpacing" min="0.8" max="3.0" step="0.1"></label>
+      <label><span data-i18n="tpl_settings_profile_word_goal">Word goal (words/day, 0=off)</span><input type="number" data-key="wordGoal" min="0"></label>
+      <label><input type="checkbox" data-key="hemingwayMode"> <span data-i18n="tpl_settings_profile_hemingway">Hemingway mode (no delete)</span></label>
     </div>
 
     <!-- Display tab -->
     <div class="stab-content" data-tab="display">
-      <p class="hint">Status bar zones</p>
-      <label>Left<input type="text" data-key="statusLeft"></label>
-      <label>Center<input type="text" data-key="statusCenter"></label>
-      <label>Right<input type="text" data-key="statusRight"></label>
-      <p class="hint">Tokens: filename dirty words chars lines line col para pages percent today goal reading clock timer</p>
-      <p class="hint" style="margin-top:10px">Editor options</p>
-      <label><input type="checkbox" data-key="lineNumbers"> Line numbers (Ctrl+L)</label>
-      <label><input type="checkbox" data-key="blockCursor"> Block cursor</label>
-      <label><input type="checkbox" data-key="blinkCursor"> Blinking cursor</label>
-      <p class="hint" style="margin-top:10px">Keyboard shortcuts</p>
+      <p class="hint" data-i18n="tpl_settings_display_statusbar_zones">Status bar zones</p>
+      <label><span data-i18n="tpl_settings_display_left">Left</span><input type="text" data-key="statusLeft"></label>
+      <label><span data-i18n="tpl_settings_display_center">Center</span><input type="text" data-key="statusCenter"></label>
+      <label><span data-i18n="tpl_settings_display_right">Right</span><input type="text" data-key="statusRight"></label>
+      <p class="hint" data-i18n="tpl_settings_display_tokens_hint">Tokens: filename dirty words chars lines line col para pages percent today goal reading clock timer</p>
+      <p class="hint" style="margin-top:10px" data-i18n="tpl_settings_display_editor_options">Editor options</p>
+      <label><input type="checkbox" data-key="lineNumbers"> <span data-i18n="tpl_settings_display_line_numbers">Line numbers (Ctrl+L)</span></label>
+      <label><input type="checkbox" data-key="blockCursor"> <span data-i18n="tpl_settings_display_block_cursor">Block cursor</span></label>
+      <label><input type="checkbox" data-key="blinkCursor"> <span data-i18n="tpl_settings_display_blink_cursor">Blinking cursor</span></label>
+      <p class="hint" style="margin-top:10px" data-i18n="tpl_settings_display_keyboard_shortcuts">Keyboard shortcuts</p>
       <label><input type="checkbox" data-key="interceptBrowserShortcuts">
-        Override browser shortcuts
-        <span class="hint" style="display:block;margin-top:2px">
+        <span data-i18n="tpl_settings_display_override_shortcuts">Override browser shortcuts</span>
+        <span class="hint" style="display:block;margin-top:2px" data-i18n="tpl_settings_display_ctrln_hint">
           Ctrl+N = new document (instead of browser new window)
         </span>
       </label>
-      <p class="hint" style="margin-top:10px">Syntax markers</p>
-      <label>Heading marker<input type="text" data-key="headingMarker" maxlength="4"></label>
-      <label>Comment marker<input type="text" data-key="commentMarker" maxlength="4"></label>
-      <label>Bold marker<input type="text" data-key="boldMarker" maxlength="4"></label>
-      <label>Italic marker<input type="text" data-key="italicMarker" maxlength="4"></label>
-      <label>Underline marker<input type="text" data-key="underlineMarker" maxlength="4"></label>
-      <label>Strikethrough marker<input type="text" data-key="strikeMarker" maxlength="4"></label>
-      <label><input type="checkbox" data-key="markdownHeadings"> Markdown headings (#)</label>
+      <p class="hint" style="margin-top:10px" data-i18n="tpl_settings_display_syntax_markers">Syntax markers</p>
+      <label><span data-i18n="tpl_settings_display_heading_marker">Heading marker</span><input type="text" data-key="headingMarker" maxlength="4"></label>
+      <label><span data-i18n="tpl_settings_display_comment_marker">Comment marker</span><input type="text" data-key="commentMarker" maxlength="4"></label>
+      <label><span data-i18n="tpl_settings_display_bold_marker">Bold marker</span><input type="text" data-key="boldMarker" maxlength="4"></label>
+      <label><span data-i18n="tpl_settings_display_italic_marker">Italic marker</span><input type="text" data-key="italicMarker" maxlength="4"></label>
+      <label><span data-i18n="tpl_settings_display_underline_marker">Underline marker</span><input type="text" data-key="underlineMarker" maxlength="4"></label>
+      <label><span data-i18n="tpl_settings_display_strike_marker">Strikethrough marker</span><input type="text" data-key="strikeMarker" maxlength="4"></label>
+      <label><input type="checkbox" data-key="markdownHeadings"> <span data-i18n="tpl_settings_display_markdown_headings">Markdown headings (#)</span></label>
     </div>
 
     <!-- Fonts tab -->
     <div class="stab-content" data-tab="fonts">
-      <label>Font family<input type="text" data-key="fontFamily" id="font-family-input"></label>
-      <label>Font size (px)<input type="number" data-key="fontSize" min="8" max="48"></label>
+      <label><span data-i18n="tpl_settings_fonts_family">Font family</span><input type="text" data-key="fontFamily" id="font-family-input"></label>
+      <label><span data-i18n="tpl_settings_fonts_size">Font size (px)</span><input type="number" data-key="fontSize" min="8" max="48"></label>
       <div id="font-preview-wrap">
-        <span class="hint">Preview:</span>
-        <div id="font-preview">The quick brown fox</div>
+        <span class="hint" data-i18n="tpl_settings_fonts_preview_label">Preview:</span>
+        <div id="font-preview" data-i18n="tpl_settings_fonts_preview_text">The quick brown fox</div>
       </div>
       <div id="font-actions">
-        <button type="button" id="font-upload-btn">Upload font file…</button>
-        <button type="button" id="font-scan-btn">Scan all system fonts</button>
+        <button type="button" id="font-upload-btn" data-i18n="tpl_settings_fonts_upload_btn">Upload font file…</button>
+        <button type="button" id="font-scan-btn" data-i18n="tpl_settings_fonts_scan_btn">Scan all system fonts</button>
         <input type="file" id="font-upload-input" accept=".ttf,.otf,.woff,.woff2" multiple hidden>
       </div>
-      <label class="hint-label"><span class="hint">Available fonts (click to select):</span></label>
+      <label class="hint-label"><span class="hint" data-i18n="tpl_settings_fonts_available_label">Available fonts (click to select):</span></label>
       <div id="font-list"></div>
     </div>
 
     <!-- Schemes tab -->
     <div class="stab-content" data-tab="schemes">
       <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-        <label>Scheme <select data-key="scheme" id="scheme-select"></select></label>
-        <button id="scheme-new-btn">New</button>
-        <button id="scheme-delete-btn">Delete</button>
+        <label><span data-i18n="tpl_settings_schemes_label">Scheme</span> <select data-key="scheme" id="scheme-select"></select></label>
+        <button id="scheme-new-btn" data-i18n="tpl_settings_schemes_new_btn">New</button>
+        <button id="scheme-delete-btn" data-i18n="tpl_settings_schemes_delete_btn">Delete</button>
       </div>
-      <label style="margin-top:8px"><input type="checkbox" data-key="darkMode" id="scheme-dark-check"> Dark mode</label>
+      <label style="margin-top:8px"><input type="checkbox" data-key="darkMode" id="scheme-dark-check"> <span data-i18n="tpl_settings_schemes_dark_mode">Dark mode</span></label>
       <div id="scheme-colors"></div>
     </div>
 
     <!-- Timer tab -->
     <div class="stab-content" data-tab="timer">
-      <label>Type
+      <label><span data-i18n="tpl_settings_timer_type">Type</span>
         <select data-key="timerType">
-          <option value="countdown">Countdown</option>
-          <option value="stopwatch">Stopwatch</option>
+          <option value="countdown" data-i18n="tpl_settings_timer_countdown">Countdown</option>
+          <option value="stopwatch" data-i18n="tpl_settings_timer_stopwatch">Stopwatch</option>
         </select>
       </label>
-      <label>Duration (min)<input type="number" data-key="timerDuration" min="1" max="240"></label>
-      <label><input type="checkbox" data-key="timerSound"> Sound at end</label>
-      <label><input type="checkbox" data-key="timerAlert"> Alert dialog</label>
-      <label><input type="checkbox" data-key="timerShow"> Show in status bar</label>
+      <label><span data-i18n="tpl_settings_timer_duration">Duration (min)</span><input type="number" data-key="timerDuration" min="1" max="240"></label>
+      <label><input type="checkbox" data-key="timerSound"> <span data-i18n="tpl_settings_timer_sound">Sound at end</span></label>
+      <label><input type="checkbox" data-key="timerAlert"> <span data-i18n="tpl_settings_timer_alert">Alert dialog</span></label>
+      <label><input type="checkbox" data-key="timerShow"> <span data-i18n="tpl_settings_timer_show">Show in status bar</span></label>
     </div>
 
     <!-- Misc tab -->
     <div class="stab-content" data-tab="misc">
-      <label><input type="checkbox" data-key="cursorRestore"> Restore cursor position on open</label>
-      <label><input type="checkbox" data-key="openLastDoc"> Open last document on startup</label>
-      <p class="hint" style="margin-top:12px">Watched folder browser</p>
-      <label>File filter<input type="text" data-key="browserFilter"></label>
-      <label><input type="checkbox" data-key="browserShowAll"> Show all files (ignore filter)</label>
-      <label><input type="checkbox" data-key="browserSubdirs"> Browse subfolders</label>
-      <p class="hint" style="margin-top:12px">writhdeck.ini — compatible with the desktop version</p>
+      <p class="hint" data-i18n="tpl_settings_misc_language">Language</p>
+      <label><span data-i18n="tpl_settings_misc_app_language">App language</span>
+        <select data-key="language">
+          <option value="auto">System / browser default</option>
+          <option value="en">English</option>
+          <option value="fr">Français</option>
+          <option value="es">Español</option>
+          <option value="de">Deutsch</option>
+          <option value="pt">Português (BR)</option>
+        </select>
+      </label>
+      <label><input type="checkbox" data-key="cursorRestore"> <span data-i18n="tpl_settings_misc_cursor_restore">Restore cursor position on open</span></label>
+      <label><input type="checkbox" data-key="openLastDoc"> <span data-i18n="tpl_settings_misc_open_last_doc">Open last document on startup</span></label>
+      <p class="hint" style="margin-top:12px" data-i18n="tpl_settings_misc_watched_folder">Watched folder browser</p>
+      <label><span data-i18n="tpl_settings_misc_file_filter">File filter</span><input type="text" data-key="browserFilter"></label>
+      <label><input type="checkbox" data-key="browserShowAll"> <span data-i18n="tpl_settings_misc_show_all_files">Show all files (ignore filter)</span></label>
+      <label><input type="checkbox" data-key="browserSubdirs"> <span data-i18n="tpl_settings_misc_browse_subfolders">Browse subfolders</span></label>
+      <p class="hint" style="margin-top:12px" data-i18n="tpl_settings_misc_ini_hint">writhdeck.ini — compatible with the desktop version</p>
       <div style="display:flex;gap:8px;margin-top:4px;flex-wrap:wrap">
-        <button id="misc-ini-import-btn">Import writhdeck.ini</button>
-        <button id="misc-ini-export-btn">Export writhdeck.ini</button>
+        <button id="misc-ini-import-btn" data-i18n="tpl_settings_misc_ini_import_btn">Import writhdeck.ini</button>
+        <button id="misc-ini-export-btn" data-i18n="tpl_settings_misc_ini_export_btn">Export writhdeck.ini</button>
       </div>
-      <p class="hint" style="margin-top:12px">Documents</p>
+      <p class="hint" style="margin-top:12px" data-i18n="tpl_settings_misc_documents">Documents</p>
       <div style="display:flex;gap:8px;margin-top:4px;flex-wrap:wrap">
-        <button id="misc-import-btn">Import file from disk</button>
-        <button id="misc-export-all-btn">Export all (.txt)</button>
-        <button id="misc-export-zip-btn">Export all (ZIP)</button>
+        <button id="misc-import-btn" data-i18n="tpl_settings_misc_import_btn">Import file from disk</button>
+        <button id="misc-export-all-btn" data-i18n="tpl_settings_misc_export_all_btn">Export all (.txt)</button>
+        <button id="misc-export-zip-btn" data-i18n="tpl_settings_misc_export_zip_btn">Export all (ZIP)</button>
       </div>
     </div>
 
   </div>
   <div id="settings-footer">
-    <button id="settings-apply">Apply</button>
-    <button id="settings-close">Close</button>
-    <button id="settings-reset" style="margin-left:auto;color:var(--comment)">Reset to defaults</button>
+    <button id="settings-apply" data-i18n="tpl_settings_apply_btn">Apply</button>
+    <button id="settings-close" data-i18n="tpl_settings_close_btn">Close</button>
+    <button id="settings-reset" style="margin-left:auto;color:var(--comment)" data-i18n="tpl_settings_reset_btn">Reset to defaults</button>
   </div>
 </dialog>
 
 <!-- File info dialog -->
 <dialog id="info-dlg">
   <div id="info-header">
-    <span>Document info</span>
-    <button id="info-close">✕</button>
+    <span data-i18n="tpl_dialog_info_title">Document info</span>
+    <button id="info-close" data-i18n-title="tpl_dialog_close_btn" title="Close">✕</button>
   </div>
   <div id="info-body"></div>
 </dialog>
@@ -294,9 +306,9 @@
 <!-- Analyse dialog -->
 <dialog id="analyse-dlg">
   <div id="analyse-header">
-    <span id="analyse-title">Structure</span>
-    <button id="analyse-words-btn" title="Word occurrences">abc</button>
-    <button id="analyse-close">✕</button>
+    <span id="analyse-title" data-i18n="tpl_dialog_analyse_title">Structure</span>
+    <button id="analyse-words-btn" data-i18n-title="tpl_dialog_analyse_words_btn" title="Word occurrences">abc</button>
+    <button id="analyse-close" data-i18n-title="tpl_dialog_close_btn" title="Close">✕</button>
   </div>
   <div id="analyse-body"></div>
 </dialog>
@@ -304,8 +316,8 @@
 <!-- Word occurrences dialog -->
 <dialog id="words-dlg">
   <div id="words-header">
-    <span id="words-title">Word occurrences</span>
-    <button id="words-close">✕</button>
+    <span id="words-title" data-i18n="tpl_dialog_words_title">Word occurrences</span>
+    <button id="words-close" data-i18n-title="tpl_dialog_close_btn" title="Close">✕</button>
   </div>
   <div id="words-body"></div>
 </dialog>
@@ -313,25 +325,25 @@
 <!-- Stats dialog -->
 <dialog id="stats-dlg">
   <div id="stats-header">
-    <span>Writing Stats</span>
-    <button id="stats-close">✕</button>
+    <span data-i18n="tpl_dialog_stats_title">Writing Stats</span>
+    <button id="stats-close" data-i18n-title="tpl_dialog_close_btn" title="Close">✕</button>
   </div>
   <div id="stats-body"></div>
 </dialog>
 
 <!-- Timer alert dialog -->
 <dialog id="timer-alert-dlg">
-  <p>Timer finished!</p>
-  <button id="timer-alert-ok">OK</button>
+  <p data-i18n="tpl_dialog_timer_finished">Timer finished!</p>
+  <button id="timer-alert-ok" data-i18n="tpl_dialog_timer_ok_btn">OK</button>
 </dialog>
 
 <!-- Save-before-closing confirmation (Yes = save & close, No = discard & close, Cancel = stay) -->
 <dialog id="close-confirm-dlg">
   <p id="close-confirm-msg"></p>
   <div class="dlg-btn-row">
-    <button id="close-confirm-yes">Yes</button>
-    <button id="close-confirm-no">No</button>
-    <button id="close-confirm-cancel">Cancel</button>
+    <button id="close-confirm-yes" data-i18n="tpl_dialog_close_confirm_yes">Yes</button>
+    <button id="close-confirm-no" data-i18n="tpl_dialog_close_confirm_no">No</button>
+    <button id="close-confirm-cancel" data-i18n="tpl_dialog_close_confirm_cancel">Cancel</button>
   </div>
 </dialog>
 

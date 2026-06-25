@@ -43,20 +43,20 @@ async function showFileInfo(docArg) {
         if (parts) pathDisplay = [State.dirHandle.name, ...parts].join('/');
       } catch (_) {}
     } else if (doc.fileHandle) {
-      pathDisplay = `${doc.fileHandle.name} <span style="color:var(--fg-bar);font-size:0.85em">(folder not set — full path unavailable)</span>`;
+      pathDisplay = `${doc.fileHandle.name} <span style="color:var(--fg-bar);font-size:0.85em">${t('app_info_path_unavailable', '(folder not set — full path unavailable)')}</span>`;
     }
-    storageLabel = `<span class="info-storage-disk">Disk file — ${pathDisplay}</span>`;
+    storageLabel = `<span class="info-storage-disk">${t('app_info_storage_disk', 'Disk file — ${path}', { path: pathDisplay })}</span>`;
   } else {
-    storageLabel = `<span class="info-storage-browser">Browser storage (IndexedDB) — not on your disk</span>`;
+    storageLabel = `<span class="info-storage-browser">${t('app_info_storage_browser', 'Browser storage (IndexedDB) — not on your disk')}</span>`;
   }
 
   const rows = [
-    ['Name',     doc.name],
-    ['Storage',  storageLabel],
-    ['Words',    wc.toLocaleString()],
-    ['Chars',    cc.toLocaleString()],
-    ['Created',  doc.created  ? new Date(doc.created).toLocaleString()  : '—'],
-    ['Modified', doc.modified ? new Date(doc.modified).toLocaleString() : '—']
+    [t('app_info_label_name', 'Name'),     doc.name],
+    [t('app_info_label_storage', 'Storage'),  storageLabel],
+    [t('app_info_label_words', 'Words'),    wc.toLocaleString()],
+    [t('app_info_label_chars', 'Chars'),    cc.toLocaleString()],
+    [t('app_info_label_created', 'Created'),  doc.created  ? new Date(doc.created).toLocaleString()  : '—'],
+    [t('app_info_label_modified', 'Modified'), doc.modified ? new Date(doc.modified).toLocaleString() : '—']
   ];
 
   rows.forEach(([label, value]) => {
@@ -99,12 +99,12 @@ async function showWordOcc(docArg) {
   if (!sorted.length) {
     const empty = document.createElement('p');
     empty.style.cssText = 'color:var(--fg-bar);padding:12px 0';
-    empty.textContent = 'No words found.';
+    empty.textContent = t('app_words_empty', 'No words found.');
     body.appendChild(empty);
   } else {
     const table = document.createElement('table');
     table.className = 'words-table';
-    table.innerHTML = '<tr><th>Word</th><th>#</th></tr>';
+    table.innerHTML = `<tr><th>${t('app_words_col_word', 'Word')}</th><th>${t('app_words_col_count', '#')}</th></tr>`;
     sorted.forEach(([word, count]) => {
       const tr = document.createElement('tr');
       tr.innerHTML = `<td>${word}</td><td>${count}</td>`;
@@ -113,7 +113,7 @@ async function showWordOcc(docArg) {
     body.appendChild(table);
   }
 
-  document.getElementById('words-title').textContent = `Word occurrences — ${doc.name}`;
+  document.getElementById('words-title').textContent = t('app_words_title', 'Word occurrences — ${name}', { name: doc.name });
   document.getElementById('words-dlg').showModal();
 }
 
@@ -174,14 +174,14 @@ async function showAnalyse(docArg) {
 
   const total = sections.reduce((acc, sec) => acc + sec.words, 0);
 
-  document.getElementById('analyse-title').textContent = `Structure — ${doc.name}`;
+  document.getElementById('analyse-title').textContent = t('app_analyse_title', 'Structure — ${name}', { name: doc.name });
   const body = document.getElementById('analyse-body');
   body.innerHTML = '';
 
   if (total === 0) {
     const empty = document.createElement('div');
     empty.style.cssText = 'padding:12px 0;color:var(--fg-bar)';
-    empty.textContent = 'No content to analyse.';
+    empty.textContent = t('app_analyse_empty', 'No content to analyse.');
     body.appendChild(empty);
     document.getElementById('analyse-dlg').showModal();
     return;
@@ -193,7 +193,7 @@ async function showAnalyse(docArg) {
     const pct = total > 0 ? Math.round(sec.words / total * 100) : 0;
     const barW = Math.max(2, Math.round(pct / 100 * maxBar));
     const indent = sec.level > 1 ? (sec.level - 1) * 14 : 0;
-    const label = sec.title || '(début)';
+    const label = sec.title || t('app_analyse_start_label', '(start)');
 
     const row = document.createElement('div');
     row.className = 'analyse-row';
@@ -204,7 +204,7 @@ async function showAnalyse(docArg) {
     if (sec.level > 0) {
       const lvl = document.createElement('span');
       lvl.className = 'analyse-level';
-      lvl.textContent = 'H' + sec.level;
+      lvl.textContent = t('app_analyse_heading_level', 'H${level}', { level: sec.level });
       titleDiv.appendChild(lvl);
     }
     const txt = document.createElement('span');
@@ -231,7 +231,13 @@ async function showAnalyse(docArg) {
   const sectionCount = sections.filter(sec => sec.title !== null).length;
   const footer = document.createElement('div');
   footer.className = 'analyse-footer';
-  footer.textContent = `Total : ${total.toLocaleString()} mots · ${sectionCount} section${sectionCount !== 1 ? 's' : ''}`;
+  const sectionLabel = sectionCount === 1
+    ? t('app_analyse_footer_section_one', '${count} section', { count: sectionCount })
+    : t('app_analyse_footer_section_other', '${count} sections', { count: sectionCount });
+  footer.textContent = t('app_analyse_footer', 'Total: ${total} words · ${sections}', {
+    total: total.toLocaleString(),
+    sections: sectionLabel
+  });
   body.appendChild(footer);
 
   document.getElementById('analyse-words-btn').onclick = () => {
@@ -575,6 +581,7 @@ async function init() {
   await loadState();
   await Fonts.load();   // register user-uploaded fonts before first paint
   applyTheme();
+  applyTranslations();
 
   // Restore watched folder if permission still granted (silent — no user gesture needed for query)
   if (State.dirHandle) {
@@ -703,7 +710,7 @@ async function init() {
       case 'ctx-menu':
         State.settings.interceptContextMenu = !State.settings.interceptContextMenu;
         saveSettings();
-        Editor.setMsg(State.settings.interceptContextMenu ? 'Right-click menu on' : 'Right-click menu off');
+        Editor.setMsg(State.settings.interceptContextMenu ? t('app_msg_ctx_menu_on', 'Right-click menu on') : t('app_msg_ctx_menu_off', 'Right-click menu off'));
         break;
       case 'config':     Settings.show();            break;
     }
@@ -715,15 +722,16 @@ async function init() {
     [1, 2, 3].forEach(lvl => {
       const btn = edMenu.querySelector(`[data-markup="h${lvl}"]`);
       const p   = hm.repeat(lvl);
-      const txt = hm ? `${p} H${lvl} ${p}` : `H${lvl}`;
+      const hLabel = t('app_menu_heading_level', 'H${level}', { level: lvl });
+      const txt = hm ? `${p} ${hLabel} ${p}` : hLabel;
       btn.innerHTML = `<span>${txt}</span> <span class="hint">${lvl}</span>`;
       btn.disabled  = !hm;
     });
-    [['comment', s.commentMarker, 'Comment (line)', '/'],
-     ['bold',    s.boldMarker,    'Bold',           'b'],
-     ['italic',  s.italicMarker,  'Italic',         null],
-     ['underline', s.underlineMarker, 'Underline',  'u'],
-     ['strike',  s.strikeMarker,  'Strike',         'x'],
+    [['comment', s.commentMarker, t('app_menu_format_comment', 'Comment (line)'), '/'],
+     ['bold',    s.boldMarker,    t('app_menu_format_bold', 'Bold'),           'b'],
+     ['italic',  s.italicMarker,  t('app_menu_format_italic', 'Italic'),         null],
+     ['underline', s.underlineMarker, t('app_menu_format_underline', 'Underline'),  'u'],
+     ['strike',  s.strikeMarker,  t('app_menu_format_strike', 'Strike'),         'x'],
     ].forEach(([type, marker, label, hint]) => {
       const btn = edMenu.querySelector(`[data-markup="${type}"]`);
       const txt = marker ? `${marker} ${label}` : label;
@@ -732,9 +740,9 @@ async function init() {
     });
     // Update toggle labels
     const ctxBtn = edMenu.querySelector('[data-cmd="ctx-menu"]');
-    if (ctxBtn) ctxBtn.innerHTML = `Right-click menu <span class="hint">${s.interceptContextMenu ? 'on' : 'off'}</span>`;
+    if (ctxBtn) ctxBtn.innerHTML = `${t('app_menu_ctx_menu_label', 'Right-click menu')} <span class="hint">${s.interceptContextMenu ? t('app_toggle_on', 'on') : t('app_toggle_off', 'off')}</span>`;
     const bcBtn = edMenu.querySelector('[data-cmd="block-cursor"]');
-    if (bcBtn) bcBtn.innerHTML = `Block cursor <span class="hint">${s.blockCursor ? 'on' : 'off'}</span>`;
+    if (bcBtn) bcBtn.innerHTML = `${t('app_menu_block_cursor_label', 'Block cursor')} <span class="hint">${s.blockCursor ? t('app_toggle_on', 'on') : t('app_toggle_off', 'off')}</span>`;
     edMenu.hidden = false;
   }
   _openMenuFn = openMenu;
@@ -831,22 +839,22 @@ async function init() {
     // Format
     const hm = s.headingMarker;
     if (hm) {
-      item(`${hm} H1 ${hm}`, () => Editor.applyHeading(1));
-      item(`${hm.repeat(2)} H2 ${hm.repeat(2)}`, () => Editor.applyHeading(2));
-      item(`${hm.repeat(3)} H3 ${hm.repeat(3)}`, () => Editor.applyHeading(3));
+      item(`${hm} ${t('app_menu_heading_level', 'H${level}', { level: 1 })} ${hm}`, () => Editor.applyHeading(1));
+      item(`${hm.repeat(2)} ${t('app_menu_heading_level', 'H${level}', { level: 2 })} ${hm.repeat(2)}`, () => Editor.applyHeading(2));
+      item(`${hm.repeat(3)} ${t('app_menu_heading_level', 'H${level}', { level: 3 })} ${hm.repeat(3)}`, () => Editor.applyHeading(3));
     }
-    if (s.commentMarker)   item(`${s.commentMarker} Comment`, () => Editor.applyLineMarker(s.commentMarker));
-    if (s.boldMarker)      item(`${s.boldMarker} Bold`,       () => Editor.applyInlineMarker(s.boldMarker),      !sel);
-    if (s.italicMarker)    item(`${s.italicMarker} Italic`,   () => Editor.applyInlineMarker(s.italicMarker),    !sel);
-    if (s.underlineMarker) item(`${s.underlineMarker} Underline`, () => Editor.applyInlineMarker(s.underlineMarker), !sel);
-    if (s.strikeMarker)    item(`${s.strikeMarker} Strike`,   () => Editor.applyInlineMarker(s.strikeMarker),    !sel);
+    if (s.commentMarker)   item(`${s.commentMarker} ${t('app_ctxmenu_comment', 'Comment')}`, () => Editor.applyLineMarker(s.commentMarker));
+    if (s.boldMarker)      item(`${s.boldMarker} ${t('app_menu_format_bold', 'Bold')}`,       () => Editor.applyInlineMarker(s.boldMarker),      !sel);
+    if (s.italicMarker)    item(`${s.italicMarker} ${t('app_menu_format_italic', 'Italic')}`,   () => Editor.applyInlineMarker(s.italicMarker),    !sel);
+    if (s.underlineMarker) item(`${s.underlineMarker} ${t('app_menu_format_underline', 'Underline')}`, () => Editor.applyInlineMarker(s.underlineMarker), !sel);
+    if (s.strikeMarker)    item(`${s.strikeMarker} ${t('app_menu_format_strike', 'Strike')}`,   () => Editor.applyInlineMarker(s.strikeMarker),    !sel);
 
     sep();
 
     // Edit
-    item('Cut',   () => document.execCommand('cut'),  !sel);
-    item('Copy',  () => document.execCommand('copy'), !sel);
-    item('Paste', async () => {
+    item(t('app_ctxmenu_cut', 'Cut'),   () => document.execCommand('cut'),  !sel);
+    item(t('app_ctxmenu_copy', 'Copy'),  () => document.execCommand('copy'), !sel);
+    item(t('app_ctxmenu_paste', 'Paste'), async () => {
       try {
         const text = await navigator.clipboard.readText();
         ta.focus();
@@ -858,7 +866,7 @@ async function init() {
     sep();
 
     // Spell check toggle
-    item(`Spell check: ${ta.spellcheck ? 'on' : 'off'}`, () => { ta.spellcheck = !ta.spellcheck; });
+    item(ta.spellcheck ? t('app_ctxmenu_spellcheck_on', 'Spell check: on') : t('app_ctxmenu_spellcheck_off', 'Spell check: off'), () => { ta.spellcheck = !ta.spellcheck; });
 
     document.body.appendChild(menu);
     _edCtxMenu = menu;

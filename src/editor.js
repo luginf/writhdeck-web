@@ -46,7 +46,7 @@ const Editor = (() => {
 
     document.getElementById('browser').hidden = true;
     document.getElementById('editor').hidden  = false;
-    document.title = `${doc.name} — Writhdeck`;
+    document.title = t('editor_title_doc', '${name} — Writhdeck', { name: doc.name });
 
     const input = ta();
     input.value = doc.content || '';
@@ -101,7 +101,7 @@ const Editor = (() => {
     }
     return new Promise(resolve => {
       _closeConfirmResolve = resolve;
-      document.getElementById('close-confirm-msg').textContent = `Save "${name}" before closing?`;
+      document.getElementById('close-confirm-msg').textContent = t('editor_confirm_save_before_close', 'Save "${name}" before closing?', { name });
       document.getElementById('close-confirm-dlg').showModal();
     });
   }
@@ -155,10 +155,10 @@ const Editor = (() => {
         rehighlight();
         applyTheme();
         State.dirty = false;
-        setMsg('Settings applied');
+        setMsg(t('editor_msg_settings_applied', 'Settings applied'));
         Browser.render();
       } catch (e) {
-        setMsg('Parse error');
+        setMsg(t('editor_msg_parse_error', 'Parse error'));
         console.error(e);
       }
       return;
@@ -172,14 +172,14 @@ const Editor = (() => {
         const perm = await State.doc.fileHandle.queryPermission({ mode: 'readwrite' });
         if (perm !== 'granted') {
           const req = await State.doc.fileHandle.requestPermission({ mode: 'readwrite' });
-          if (req !== 'granted') { setMsg('Permission denied'); return; }
+          if (req !== 'granted') { setMsg(t('editor_msg_permission_denied', 'Permission denied')); return; }
         }
         const writable = await State.doc.fileHandle.createWritable();
         await writable.write(State.doc.content);
         await writable.close();
-        setMsg('Saved to disk');
+        setMsg(t('editor_msg_saved_to_disk', 'Saved to disk'));
       } catch (e) {
-        setMsg('Disk save failed');
+        setMsg(t('editor_msg_disk_save_failed', 'Disk save failed'));
         console.error(e);
         return;
       }
@@ -188,7 +188,7 @@ const Editor = (() => {
     // Always update IDB (caches content, persists handle)
     await DB.saveDoc(State.doc);
     State.dirty = false;
-    if (!State.doc.fileHandle) setMsg('Saved');
+    if (!State.doc.fileHandle) setMsg(t('editor_msg_saved', 'Saved'));
 
     // Update docs list
     const idx = State.docs.findIndex(d => d.id === State.doc.id);
@@ -219,7 +219,7 @@ const Editor = (() => {
           types: [{ description: 'Text', accept: { 'text/plain': ['.txt', '.md', '.t2t'] } }]
         });
       } catch (e) {
-        if (e.name !== 'AbortError') { setMsg('Save As failed'); console.error(e); }
+        if (e.name !== 'AbortError') { setMsg(t('editor_msg_save_as_failed', 'Save As failed')); console.error(e); }
         return;
       }
       try {
@@ -227,7 +227,7 @@ const Editor = (() => {
         await writable.write(ta().value);
         await writable.close();
       } catch (e) {
-        setMsg('Save As failed'); console.error(e);
+        setMsg(t('editor_msg_save_as_failed', 'Save As failed')); console.error(e);
         return;
       }
       State.doc.fileHandle = handle;
@@ -239,19 +239,19 @@ const Editor = (() => {
       const idx = State.docs.findIndex(d => d.id === State.doc.id);
       if (idx >= 0) State.docs[idx] = State.doc;
       State.dirty = false;
-      document.title = `${State.doc.name} — Writhdeck`;
-      setMsg('Saved as ' + State.doc.name);
+      document.title = t('editor_title_doc', '${name} — Writhdeck', { name: State.doc.name });
+      setMsg(t('editor_msg_saved_as', 'Saved as ${name}', { name: State.doc.name }));
       updateStatusBar();
       Browser.render();
       return;
     }
 
     // Fallback: save a copy under a new name in browser storage
-    const name = prompt('Save as (new name):', Browser.uniqueName(State.doc.name));
+    const name = prompt(t('editor_prompt_save_as', 'Save as (new name):'), Browser.uniqueName(State.doc.name));
     if (!name || !name.trim()) return;
     const trimmed = name.trim();
     if (Browser.nameExists(trimmed)) {
-      alert(`A document named "${trimmed}" already exists.`);
+      alert(t('editor_alert_name_exists', 'A document named "${name}" already exists.', { name: trimmed }));
       return;
     }
     const copy = { name: trimmed, content: ta().value, created: Date.now(), modified: Date.now() };
@@ -259,8 +259,8 @@ const Editor = (() => {
     State.docs.push(copy);
     State.doc   = copy;
     State.dirty = false;
-    document.title = `${copy.name} — Writhdeck`;
-    setMsg('Saved as ' + copy.name);
+    document.title = t('editor_title_doc', '${name} — Writhdeck', { name: copy.name });
+    setMsg(t('editor_msg_saved_as', 'Saved as ${name}', { name: copy.name }));
     updateStatusBar();
     Browser.render();
   }

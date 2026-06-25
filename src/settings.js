@@ -2,22 +2,22 @@
 const Settings = (() => {
 
   const COLOR_KEYS = [
-    ['bg',         'Background (dark)'],
-    ['fg',         'Text (dark)'],
-    ['bgBar',      'Bar BG (dark)'],
-    ['fgBar',      'Bar text (dark)'],
-    ['bgSel',      'Selection (dark)'],
-    ['heading',    'Heading (dark)'],
-    ['comment',    'Comment (dark)'],
-    ['markup',     'Markup (dark)'],
-    ['bgAlt',      'Background (light)'],
-    ['fgAlt',      'Text (light)'],
-    ['bgBarAlt',   'Bar BG (light)'],
-    ['fgBarAlt',   'Bar text (light)'],
-    ['bgSelAlt',   'Selection (light)'],
-    ['headingAlt', 'Heading (light)'],
-    ['commentAlt', 'Comment (light)'],
-    ['markupAlt',  'Markup (light)']
+    ['bg',         () => t('settings_color_bg_dark', 'Background (dark)')],
+    ['fg',         () => t('settings_color_fg_dark', 'Text (dark)')],
+    ['bgBar',      () => t('settings_color_bg_bar_dark', 'Bar BG (dark)')],
+    ['fgBar',      () => t('settings_color_fg_bar_dark', 'Bar text (dark)')],
+    ['bgSel',      () => t('settings_color_bg_sel_dark', 'Selection (dark)')],
+    ['heading',    () => t('settings_color_heading_dark', 'Heading (dark)')],
+    ['comment',    () => t('settings_color_comment_dark', 'Comment (dark)')],
+    ['markup',     () => t('settings_color_markup_dark', 'Markup (dark)')],
+    ['bgAlt',      () => t('settings_color_bg_light', 'Background (light)')],
+    ['fgAlt',      () => t('settings_color_fg_light', 'Text (light)')],
+    ['bgBarAlt',   () => t('settings_color_bg_bar_light', 'Bar BG (light)')],
+    ['fgBarAlt',   () => t('settings_color_fg_bar_light', 'Bar text (light)')],
+    ['bgSelAlt',   () => t('settings_color_bg_sel_light', 'Selection (light)')],
+    ['headingAlt', () => t('settings_color_heading_light', 'Heading (light)')],
+    ['commentAlt', () => t('settings_color_comment_light', 'Comment (light)')],
+    ['markupAlt',  () => t('settings_color_markup_light', 'Markup (light)')]
   ];
 
   // ── Public ────────────────────────────────────────────────────────────────
@@ -100,7 +100,7 @@ const Settings = (() => {
       seen.add(font);
       const div = document.createElement('div');
       div.className = 'font-item' + (font === current ? ' selected' : '');
-      const tag = userNames.has(font) ? '  (custom)' : folderNames.has(font) ? '  (folder)' : '';
+      const tag = userNames.has(font) ? '  ' + t('settings_font_tag_custom', '(custom)') : folderNames.has(font) ? '  ' + t('settings_font_tag_folder', '(folder)') : '';
       const label = document.createElement('span');
       label.textContent = font + tag;
       label.style.fontFamily = font;
@@ -115,7 +115,7 @@ const Settings = (() => {
         const del = document.createElement('span');
         del.className = 'font-del';
         del.textContent = '✕';
-        del.title = 'Remove this font';
+        del.title = t('settings_remove_this_font', 'Remove this font');
         del.addEventListener('click', async e => {
           e.stopPropagation();
           await Fonts.remove(font);
@@ -132,7 +132,7 @@ const Settings = (() => {
   // browsers keep the detected subset.
   async function scanAllSystemFonts() {
     if (!window.queryLocalFonts) {
-      alert('Your browser cannot enumerate all system fonts (Local Font Access API — Chrome/Edge only). Showing the detected subset instead.');
+      alert(t('settings_cannot_enumerate_fonts', 'Your browser cannot enumerate all system fonts (Local Font Access API — Chrome/Edge only). Showing the detected subset instead.'));
       return;
     }
     try {
@@ -140,7 +140,7 @@ const Settings = (() => {
       const families = [...new Set(picked.map(f => f.family))].sort((a, b) => a.localeCompare(b));
       renderFontList([...Fonts.names(), ...Fonts.folderNames(), ...families], document.getElementById('font-family-input').value);
     } catch (_) {
-      alert('Could not access system fonts (permission denied).');
+      alert(t('settings_could_not_access_fonts', 'Could not access system fonts (permission denied).'));
     }
   }
 
@@ -174,7 +174,7 @@ const Settings = (() => {
     grid.innerHTML = '';
     COLOR_KEYS.forEach(([key, label]) => {
       const lbl = document.createElement('label');
-      lbl.textContent = label;
+      lbl.textContent = label();
       lbl.style.fontSize = '0.85em';
       const inp = document.createElement('input');
       inp.type = 'color';
@@ -223,6 +223,7 @@ const Settings = (() => {
 
   function refreshAfterSettingsChange() {
     applyTheme();
+    applyTranslations();
     if (State.doc) {
       Editor.rehighlight();
       Editor.applyLineNumbers();
@@ -244,11 +245,11 @@ const Settings = (() => {
   }
 
   function newProfile() {
-    const name = prompt('New profile name:');
+    const name = prompt(t('settings_new_profile_prompt', 'New profile name:'));
     if (!name || !name.trim()) return;
     const trimmed = name.trim();
-    if (/[[\]]/.test(trimmed)) { alert('Profile names cannot contain [ or ].'); return; }
-    if (State.profiles[trimmed]) { alert('A profile with this name already exists.'); return; }
+    if (/[[\]]/.test(trimmed)) { alert(t('settings_profile_name_no_brackets', 'Profile names cannot contain [ or ].')); return; }
+    if (State.profiles[trimmed]) { alert(t('settings_profile_already_exists', 'A profile with this name already exists.')); return; }
     apply(); // commit current edits first
 
     State.profiles[trimmed] = Object.fromEntries(INI.PROFILE_JS_KEYS.map(k => [k, State.settings[k]]));
@@ -260,9 +261,9 @@ const Settings = (() => {
   }
 
   function deleteProfile() {
-    if (State.profileNames.length <= 1) { alert('Cannot delete the only profile.'); return; }
+    if (State.profileNames.length <= 1) { alert(t('settings_cannot_delete_only_profile', 'Cannot delete the only profile.')); return; }
     const name = State.activeProfile;
-    if (!confirm(`Delete profile "${name}"?`)) return;
+    if (!confirm(t('settings_delete_profile_confirm', 'Delete profile "${name}"?', { name }))) return;
     delete State.profiles[name];
     State.profileNames = Object.keys(State.profiles);
     State.activeProfile = State.profileNames[0];
@@ -286,11 +287,11 @@ const Settings = (() => {
   // ── Scheme actions ────────────────────────────────────────────────────────
 
   function newScheme() {
-    const name = prompt('New scheme name:');
+    const name = prompt(t('settings_new_scheme_prompt', 'New scheme name:'));
     if (!name || !name.trim()) return;
     const trimmed = name.trim();
-    if (/[[\]]/.test(trimmed)) { alert('Scheme names cannot contain [ or ].'); return; }
-    if (getAllSchemeNames().includes(trimmed)) { alert('Name already exists.'); return; }
+    if (/[[\]]/.test(trimmed)) { alert(t('settings_scheme_name_no_brackets', 'Scheme names cannot contain [ or ].')); return; }
+    if (getAllSchemeNames().includes(trimmed)) { alert(t('settings_name_already_exists', 'Name already exists.')); return; }
     customSchemes[trimmed] = { ...getScheme(State.settings.scheme) };
     saveCustomSchemes();
     State.settings.scheme = trimmed;
@@ -301,8 +302,8 @@ const Settings = (() => {
 
   function deleteScheme() {
     const name = document.getElementById('scheme-select').value;
-    if (SCHEMES[name]) { alert('Cannot delete a built-in scheme.'); return; }
-    if (!confirm(`Delete scheme "${name}"?`)) return;
+    if (SCHEMES[name]) { alert(t('settings_cannot_delete_builtin_scheme', 'Cannot delete a built-in scheme.')); return; }
+    if (!confirm(t('settings_delete_scheme_confirm', 'Delete scheme "${name}"?', { name }))) return;
     delete customSchemes[name];
     saveCustomSchemes();
     State.settings.scheme = 'default';
@@ -324,7 +325,8 @@ const Settings = (() => {
     applyTheme();
     populate();
     if (State.doc) { Editor.rehighlight(); Editor.updateStatusBar(); }
-    alert(`Settings imported.\nSchemes found: ${Object.keys(schemes).join(', ') || 'none'}`);
+    const schemeList = Object.keys(schemes).join(', ') || t('settings_none', 'none');
+    alert(t('settings_import_success', 'Settings imported.\nSchemes found: ${schemeList}', { schemeList }));
   }
 
   function exportIni() {
@@ -362,7 +364,7 @@ const Settings = (() => {
     const files = State.docs
       .filter(d => d.content)
       .map(d => ({ name: d.name.replace(/\.[^.]+$/, '') + '.txt', content: d.content }));
-    if (!files.length) { alert('No documents to export.'); return; }
+    if (!files.length) { alert(t('settings_no_docs_export', 'No documents to export.')); return; }
     const blob = new Blob([buildZip(files)], { type: 'application/zip' });
     const a = Object.assign(document.createElement('a'), {
       href: URL.createObjectURL(blob),
@@ -526,7 +528,7 @@ const Settings = (() => {
       document.getElementById('settings-dlg').close();
     });
     document.getElementById('settings-reset').addEventListener('click', async () => {
-      if (!confirm('Reset all settings to defaults? This cannot be undone.')) return;
+      if (!confirm(t('settings_reset_confirm', 'Reset all settings to defaults? This cannot be undone.'))) return;
       await DB.setMeta('iniText', null);
       location.reload();
     });
