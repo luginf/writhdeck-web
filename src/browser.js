@@ -9,7 +9,7 @@ const Browser = (() => {
     const list = document.getElementById('br-list');
     list.innerHTML = '';
 
-    const docs   = State.docs;
+    const docs   = State.docs.filter(d => d.id !== 'scratch');
     const favIds = new Set(State.favorites);
     const recIds = new Set(State.recents);
 
@@ -200,6 +200,11 @@ const Browser = (() => {
     return `${base} (${n})`;
   }
 
+  async function openScratch() {
+    const doc = { id: 'scratch', name: t('browser_scratch_name', 'Scratch'), content: '' };
+    await Editor.open(doc);
+  }
+
   async function newDoc() {
     const inFolder = hasFSA && !!State.dirHandle;
     const name = prompt(t('browser_document_name_prompt', 'Document name:'), uniqueName('Untitled'));
@@ -325,6 +330,7 @@ const Browser = (() => {
     bar.innerHTML = '';
     const shortcuts = [
       ['n', t('browser_shortcut_new', 'new'), newDoc],
+      ['t', t('browser_shortcut_scratch', 'scratch'), openScratch],
       ...(hasFSA ? [
         ['w', t('browser_shortcut_watch_folder', 'watch folder'), openFolder],
         ['o', t('browser_shortcut_open_file', 'open file'),   openFromDisk]
@@ -544,5 +550,5 @@ const Browser = (() => {
     render();
   }
 
-  return { render, newDoc, renameDoc, deleteDoc, openFromDisk, openFolder, hideContextMenu, hasFSA, nameExists, uniqueName, getFocusedDoc, backupDoc };
+  return { render, newDoc, openScratch, renameDoc, deleteDoc, openFromDisk, openFolder, hideContextMenu, hasFSA, nameExists, uniqueName, getFocusedDoc, backupDoc };
 })();

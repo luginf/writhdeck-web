@@ -138,6 +138,7 @@ const Editor = (() => {
 
   async function save() {
     if (!State.doc) return;
+    if (State.doc.id === 'scratch') { await saveAs(); return; }
     State.doc.content = ta().value;
 
     // Virtual INI doc — parse and apply, don't write to docs store
@@ -211,7 +212,7 @@ const Editor = (() => {
   // in browser storage and switches the editor to that copy.
   async function saveAs() {
     if (!State.doc || State.doc.isIni) return;
-    if (typeof window.showSaveFilePicker === 'function') {
+    if (typeof window.showSaveFilePicker === 'function' && State.doc.id !== 'scratch') {
       let handle;
       try {
         handle = await window.showSaveFilePicker({
@@ -299,6 +300,48 @@ const Editor = (() => {
   let _prevCursorLineStart = -1;
   let _prevCursorLineEnd = -1;
 
+  // Word marks — [{line:1-based, col:0-based, len}] — drawn over .hl-line elements
+  let _markWords = null;
+
+  function markWords(words) {
+    _markWords = words && words.length ? words : null;
+    _applyMarks();
+    if (_markWords) ta().addEventListener('input', clearMarks, { once: true });
+  }
+
+  function clearMarks() {
+    if (!_markWords) return;
+    _markWords = null;
+    rehighlight();
+  }
+
+  function _applyMarks() {
+    if (!_markWords || !_markWords.length) return;
+    const textLines = ta().value.split('\n');
+    const hlLines = pre().children;
+    const byLine = {};
+    for (const { line, col, len } of _markWords) {
+      if (!byLine[line]) byLine[line] = [];
+      byLine[line].push({ col, len });
+    }
+    for (const [lineStr, marks] of Object.entries(byLine)) {
+      const idx = parseInt(lineStr) - 1;
+      if (idx < 0 || idx >= hlLines.length) continue;
+      const lineTxt = textLines[idx] || '';
+      marks.sort((a, b) => a.col - b.col);
+      let html = '', pos = 0;
+      for (const { col, len } of marks) {
+        const s = Math.max(pos, col);
+        if (s > pos) html += escapeHtml(lineTxt.slice(pos, s));
+        const e = Math.min(s + len, lineTxt.length);
+        html += `<mark class="hl-mark">${escapeHtml(lineTxt.slice(s, e))}</mark>`;
+        pos = e;
+      }
+      if (pos < lineTxt.length) html += escapeHtml(lineTxt.slice(pos));
+      hlLines[idx].innerHTML = html;
+    }
+  }
+
   // Locate the line containing offset `pos` in `text` without scanning the
   // whole document for its boundaries (lastIndexOf/indexOf walk backward and
   // forward from `pos` only). Still counts newlines before the line to get
@@ -370,6 +413,7 @@ const Editor = (() => {
       _prevCursorLineIdx = -1;
     }
     scheduleSyncGutter();
+    _applyMarks();
   }
 
   // Patches the DOM node for a single changed line instead of replacing the
@@ -580,6 +624,29 @@ const Editor = (() => {
   function gotoLineClose() {
     document.getElementById('goto-bar').hidden = true;
     ta().focus();
+  }
+
+  function jumpToLine(n) {
+    const input = ta();
+    const lines = input.value.split('\n');
+    const lineIdx = Math.min(n - 1, lines.length - 1);
+    let offset = 0;
+    for (let i = 0; i < lineIdx; i++) offset += lines[i].length + 1;
+    input.focus();
+    input.setSelectionRange(offset, offset);
+    input.scrollTop = Math.max(0, linePixelTop(lineIdx) - input.clientHeight / 3);
+  }
+
+  function jumpToWord(line, col, len) {
+    const input = ta();
+    const lines = input.value.split('\n');
+    const lineIdx = Math.min(line - 1, lines.length - 1);
+    let offset = 0;
+    for (let i = 0; i < lineIdx; i++) offset += lines[i].length + 1;
+    offset += col;
+    input.focus();
+    input.setSelectionRange(offset, offset + len);
+    input.scrollTop = Math.max(0, linePixelTop(lineIdx) - input.clientHeight / 3);
   }
 
   // The `.hl-line` spans in #ed-highlight share the textarea's exact font/padding/
@@ -850,7 +917,7 @@ const Editor = (() => {
     // Embedders can opt out of autosave (e.g. a server backend that doesn't want
     // a revision written every 60s) by setting window.WRITHDECK_AUTOSAVE = false.
     if (typeof window !== 'undefined' && window.WRITHDECK_AUTOSAVE === false) return;
-    _autosaveId = setInterval(() => { if (State.dirty) save(); }, 60000);
+    _autosaveId = setInterval(() => { if (State.dirty && State.doc && State.doc.id !== 'scratch') save(); }, 60000);
   }
   function stopAutosave() {
     if (_autosaveId) { clearInterval(_autosaveId); _autosaveId = null; }
@@ -970,7 +1037,7 @@ const Editor = (() => {
     open, close, browser, save, saveAs, onInput, syncScroll, syncGutter, rehighlight, updateStatusBar, setMsg,
     syncCursorLineCache, syncBlockCursor,
     saveCursorPos, applyLineNumbers,
-    toggleTypewriter, isTypewriter, typewriterScroll, toggleLineNumbers, gotoLine, gotoLineGo, gotoLineClose,
+    toggleTypewriter, isTypewriter, typewriterScroll, toggleLineNumbers, gotoLine, gotoLineGo, gotoLineClose, jumpToLine, jumpToWord, markWords, clearMarks,
     applyLineMarker, applyInlineMarker, applyHeading,
     enterCmdMode, exitCmdMode, isCmdMode, cmdNavMove, getCmdNavKey,
     searchOpen, searchClose, searchUpdate, searchNext, searchPrev, replaceOne, replaceAll,

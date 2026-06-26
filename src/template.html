@@ -144,6 +144,7 @@
   <button data-cmd="stats"><span data-i18n="tpl_menu_statistics">Statistics</span> <span class="hint">s</span></button>
   <button data-cmd="analyse"><span data-i18n="tpl_menu_analyse">Analyse</span> <span class="hint">a</span></button>
   <button data-cmd="word-occ" data-i18n="tpl_menu_word_occ">Word occurrences</button>
+  <button data-cmd="repetitions" data-i18n="tpl_menu_repetitions">Repetitions</button>
   <button data-cmd="info"><span data-i18n="tpl_menu_file_info">File info</span> <span class="hint">i</span></button>
   <div class="more-sep"></div>
   <div class="more-label" data-i18n="tpl_menu_section_app">App</div>
@@ -308,9 +309,19 @@
   <div id="analyse-header">
     <span id="analyse-title" data-i18n="tpl_dialog_analyse_title">Structure</span>
     <button id="analyse-words-btn" data-i18n-title="tpl_dialog_analyse_words_btn" title="Word occurrences">abc</button>
+    <button id="analyse-rep-btn" data-i18n-title="tpl_dialog_analyse_rep_btn" title="Repetitions">rep</button>
     <button id="analyse-close" data-i18n-title="tpl_dialog_close_btn" title="Close">✕</button>
   </div>
   <div id="analyse-body"></div>
+</dialog>
+
+<!-- Repetitions dialog -->
+<dialog id="rep-dlg">
+  <div id="rep-header">
+    <span id="rep-title" data-i18n="tpl_dialog_rep_title">Repetitions</span>
+    <button id="rep-close" data-i18n-title="tpl_dialog_close_btn" title="Close">✕</button>
+  </div>
+  <div id="rep-body"></div>
 </dialog>
 
 <!-- Word occurrences dialog -->

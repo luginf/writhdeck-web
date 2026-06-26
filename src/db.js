@@ -53,7 +53,8 @@ const IndexedDbBackend = (() => {
   }
 
   function getDoc(id) {
-    return tx('documents', 'readonly', s => s.get(Number(id)));
+    const key = (typeof id === 'string' && isNaN(Number(id))) ? id : Number(id);
+    return tx('documents', 'readonly', s => s.get(key));
   }
 
   function getAllDocs() {

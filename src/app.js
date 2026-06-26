@@ -69,13 +69,151 @@ async function showFileInfo(docArg) {
   document.getElementById('info-dlg').showModal();
 }
 
+// ── Draggable dialog helper ───────────────────────────────────────────────
+
+function makeDraggable(dlg, handle) {
+  let ox = 0, oy = 0;
+  handle.addEventListener('pointerdown', e => {
+    if (e.target.tagName === 'BUTTON') return;
+    const r = dlg.getBoundingClientRect();
+    dlg.style.left = r.left + 'px';
+    dlg.style.top  = r.top  + 'px';
+    dlg.style.right = 'auto';
+    ox = e.clientX - r.left;
+    oy = e.clientY - r.top;
+    handle.setPointerCapture(e.pointerId);
+    e.preventDefault();
+  });
+  handle.addEventListener('pointermove', e => {
+    if (!handle.hasPointerCapture(e.pointerId)) return;
+    dlg.style.left = (e.clientX - ox) + 'px';
+    dlg.style.top  = (e.clientY - oy) + 'px';
+  });
+  handle.addEventListener('pointerup', e => {
+    handle.releasePointerCapture(e.pointerId);
+  });
+}
+
+// ── Repetition detection ──────────────────────────────────────────────────
+
+function findRepetitions(content, options = {}) {
+  const scope  = options.scope  || 100;
+  const minLen = options.minLen || 4;
+  const hidden = options.hidden || false;
+
+  const STOP = new Set([
+    'the','and','for','are','but','not','you','all','can','had','her','was','one','our','out',
+    'get','has','him','his','how','its','may','new','now','old','see','two','way','who','did',
+    'that','this','with','from','have','were','they','their','been','when','then','than','also',
+    'pour','dans','avec','cette','comme','plus','tout','mais','dont','leur','bien','même','sans',
+    'sous','très','aussi','entre','donc','dont','être','avoir','faire','dire','voir','vouloir',
+  ]);
+
+  const words = [];
+  content.split('\n').forEach((line, li) => {
+    for (const m of line.matchAll(/[\wÀ-ɏ]+/g))
+      words.push({ w: m[0].toLowerCase(), wlen: m[0].length, line: li + 1, col: m.index });
+  });
+
+  const reps = [];
+  for (let i = 0; i < words.length; i++) {
+    const wi = words[i];
+    if (wi.w.length < 3 || STOP.has(wi.w)) continue;
+    const start = Math.max(0, i - scope);
+    let found = false;
+    for (let j = start; j < i && !found; j++) {
+      const wj = words[j];
+      if (wj.w === wi.w) {
+        reps.push({ word: wi.w, wlen: wi.wlen, line1: wj.line, col1: wj.col, line2: wi.line, col2: wi.col, dist: i - j, type: 'repeat' });
+        found = true;
+      }
+    }
+    if (!found && hidden && wi.w.length >= minLen) {
+      for (let j = start; j < i && !found; j++) {
+        const wj = words[j];
+        if (wj.w.length >= minLen && wj.w !== wi.w && (wi.w.includes(wj.w) || wj.w.includes(wi.w))) {
+          reps.push({ word: `${wi.w} / ${wj.w}`, wlen: wi.wlen, line1: wj.line, col1: wj.col, line2: wi.line, col2: wi.col, dist: i - j, type: 'hidden' });
+          found = true;
+        }
+      }
+    }
+  }
+  return reps;
+}
+
+async function showRepetitions(docArg) {
+  const doc = docArg || State.doc;
+  if (!doc) return;
+
+  let content = (doc === State.doc) ? document.getElementById('ed-input').value : doc.content;
+  if (content == null) {
+    if (doc.fileHandle) {
+      try { const f = await doc.fileHandle.getFile(); content = await f.text(); }
+      catch(_) { content = ''; }
+    } else if (doc.id && typeof doc.id === 'number') {
+      const full = await DB.getDoc(doc.id);
+      content = full ? full.content : '';
+    } else { content = ''; }
+  }
+
+  const reps = findRepetitions(content);
+  const body = document.getElementById('rep-body');
+  body.innerHTML = '';
+  const inEditor = doc === State.doc;
+
+  if (!reps.length) {
+    const p = document.createElement('p');
+    p.style.cssText = 'color:var(--fg-bar);padding:12px 0';
+    p.textContent = t('app_rep_empty', 'No repetitions found.');
+    body.appendChild(p);
+  } else {
+    reps.forEach(({ word, wlen, line1, col1, line2, col2, dist }) => {
+      const row = document.createElement('div');
+      row.className = 'rep-row';
+      const wSpan = document.createElement('span');
+      wSpan.className = 'rep-word';
+      wSpan.textContent = word;
+      const lSpan = document.createElement('span');
+      lSpan.className = 'rep-lines';
+      const mkLink = (n, col) => {
+        const a = document.createElement('span');
+        a.className = 'rep-line';
+        a.textContent = `L${n}`;
+        if (inEditor) a.onclick = () => {
+          Editor.markWords([{ line: line1, col: col1, len: wlen }, { line: line2, col: col2, len: wlen }]);
+          Editor.jumpToWord(n, col, wlen);
+        };
+        else a.style.cursor = 'default';
+        return a;
+      };
+      lSpan.appendChild(mkLink(line1, col1));
+      lSpan.appendChild(document.createTextNode(' -> '));
+      lSpan.appendChild(mkLink(line2, col2));
+      const dSpan = document.createElement('span');
+      dSpan.className = 'rep-dist';
+      dSpan.textContent = t('app_rep_dist', '${n} words apart', { n: dist });
+      row.appendChild(wSpan);
+      row.appendChild(lSpan);
+      row.appendChild(dSpan);
+      body.appendChild(row);
+    });
+  }
+
+  const dlg = document.getElementById('rep-dlg');
+  document.getElementById('rep-title').textContent =
+    t('app_rep_title', 'Repetitions — ${name}', { name: doc.name });
+  // Reset to default position (top-right) before showing
+  dlg.style.left = ''; dlg.style.top = ''; dlg.style.right = '';
+  if (!dlg.open) dlg.show();
+}
+
 // ── Word occurrences dialog ───────────────────────────────────────────────
 
 async function showWordOcc(docArg) {
   const doc = docArg || State.doc;
   if (!doc) return;
 
-  let content = doc.content;
+  let content = (doc === State.doc) ? document.getElementById('ed-input').value : doc.content;
   if (content == null) {
     if (doc.fileHandle) {
       try { const f = await doc.fileHandle.getFile(); content = await f.text(); }
@@ -123,7 +261,7 @@ async function showAnalyse(docArg) {
   const doc = docArg || State.doc;
   if (!doc) return;
 
-  let content = doc.content;
+  let content = (doc === State.doc) ? document.getElementById('ed-input').value : doc.content;
   if (content == null) {
     if (doc.fileHandle) {
       try {
@@ -243,6 +381,10 @@ async function showAnalyse(docArg) {
   document.getElementById('analyse-words-btn').onclick = () => {
     document.getElementById('analyse-dlg').close();
     showWordOcc(doc);
+  };
+  document.getElementById('analyse-rep-btn').onclick = () => {
+    document.getElementById('analyse-dlg').close();
+    showRepetitions(doc);
   };
   document.getElementById('analyse-dlg').showModal();
 }
@@ -542,6 +684,7 @@ function onKeydown(e) {
       return;
     }
     if (lkey === 'n') { e.preventDefault(); Browser.newDoc();        return; }
+    if (lkey === 't') { e.preventDefault(); Browser.openScratch();  return; }
     if (lkey === 'o' && Browser.hasFSA) { e.preventDefault(); Browser.openFromDisk(); return; }
     if (lkey === 'w' && Browser.hasFSA) { e.preventDefault(); Browser.openFolder();   return; }
     if (lkey === 's') { e.preventDefault(); Stats.show();            return; }
@@ -699,6 +842,7 @@ async function init() {
       case 'stats':      Stats.show();               break;
       case 'analyse':    showAnalyse();              break;
       case 'word-occ':   showWordOcc();              break;
+      case 'repetitions': showRepetitions();         break;
       case 'info':       showFileInfo();             break;
       case 'timer':      Timer.toggle(); Editor.updateStatusBar(); break;
       case 'block-cursor':
@@ -911,6 +1055,8 @@ async function init() {
   // Dialog close buttons
   document.getElementById('info-close').addEventListener('click',     () => document.getElementById('info-dlg').close());
   document.getElementById('analyse-close').addEventListener('click',  () => document.getElementById('analyse-dlg').close());
+  document.getElementById('rep-close').addEventListener('click',      () => { Editor.clearMarks(); document.getElementById('rep-dlg').close(); });
+  makeDraggable(document.getElementById('rep-dlg'), document.getElementById('rep-header'));
   document.getElementById('words-close').addEventListener('click',    () => document.getElementById('words-dlg').close());
   document.getElementById('stats-close').addEventListener('click',    () => document.getElementById('stats-dlg').close());
   document.getElementById('timer-alert-ok').addEventListener('click',  () => document.getElementById('timer-alert-dlg').close());
