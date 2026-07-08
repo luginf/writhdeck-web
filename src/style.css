@@ -298,6 +298,10 @@ input[type="color"] { width: 40px; height: 24px; padding: 1px; border: 1px solid
 .hl-comment  { color: var(--comment); }
 .hl-markup   { color: var(--markup); }
 .hl-search   { background: var(--bg-sel); }
+.heading-sizes .hl-h1 { font-size: 1.8em; line-height: calc(var(--line-spacing) / 1.8); }
+.heading-sizes .hl-h2 { font-size: 1.6em; line-height: calc(var(--line-spacing) / 1.6); }
+.heading-sizes .hl-h3 { font-size: 1.4em; line-height: calc(var(--line-spacing) / 1.4); }
+.heading-sizes .hl-h4 { font-size: 1.2em; line-height: calc(var(--line-spacing) / 1.2); }
 .hl-mark     { background: var(--bg-sel); opacity: 0.7; border-radius: 2px; }
 
 /* Search / goto bars */

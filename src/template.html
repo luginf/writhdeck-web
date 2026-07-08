@@ -210,7 +210,8 @@
       <label><span data-i18n="tpl_settings_display_italic_marker">Italic marker</span><input type="text" data-key="italicMarker" maxlength="4"></label>
       <label><span data-i18n="tpl_settings_display_underline_marker">Underline marker</span><input type="text" data-key="underlineMarker" maxlength="4"></label>
       <label><span data-i18n="tpl_settings_display_strike_marker">Strikethrough marker</span><input type="text" data-key="strikeMarker" maxlength="4"></label>
-      <label><input type="checkbox" data-key="markdownHeadings"> <span data-i18n="tpl_settings_display_markdown_headings">Markdown headings (#)</span></label>
+      <label><input type="checkbox" data-key="markdownSupport"> <span data-i18n="tpl_settings_display_markdown_support">Markdown support</span></label>
+      <label><input type="checkbox" data-key="headingSizes"> <span data-i18n="tpl_settings_display_heading_sizes">Larger headings</span></label>
     </div>
 
     <!-- Fonts tab -->
@@ -266,6 +267,30 @@
           <option value="es">Español</option>
           <option value="de">Deutsch</option>
           <option value="pt">Português (BR)</option>
+        </select>
+      </label>
+      <label><span data-i18n="tpl_settings_misc_spell_lang">Spellcheck language</span>
+        <select data-key="spellLang">
+          <option value="auto">System / browser default</option>
+          <option value="en">English</option>
+          <option value="fr">Français</option>
+          <option value="fr-FR">Français (France)</option>
+          <option value="fr-BE">Français (Belgique)</option>
+          <option value="fr-CH">Français (Suisse)</option>
+          <option value="de">Deutsch</option>
+          <option value="de-AT">Deutsch (Österreich)</option>
+          <option value="de-CH">Deutsch (Schweiz)</option>
+          <option value="es">Español</option>
+          <option value="pt">Português</option>
+          <option value="pt-BR">Português (Brasil)</option>
+          <option value="it">Italiano</option>
+          <option value="nl">Nederlands</option>
+          <option value="pl">Polski</option>
+          <option value="ru">Русский</option>
+          <option value="sv">Svenska</option>
+          <option value="nb">Norsk bokmål</option>
+          <option value="da">Dansk</option>
+          <option value="fi">Suomi</option>
         </select>
       </label>
       <label><input type="checkbox" data-key="cursorRestore"> <span data-i18n="tpl_settings_misc_cursor_restore">Restore cursor position on open</span></label>

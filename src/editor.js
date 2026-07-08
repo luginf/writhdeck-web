@@ -19,10 +19,12 @@ const Editor = (() => {
   let _wc               = 0;
   let _sessionBaseline  = -1;  // total words in doc minus today's prior additions (set on open)
   let _sessionMaxToday  = 0;   // high-water mark of words added today this session
+  let _docReadOnly      = false;
 
   // ── Open / close ──────────────────────────────────────────────────────────
 
   async function open(doc) {
+    _docReadOnly = false;
     // For disk files, try to read fresh content from disk
     if (doc.fileHandle) {
       try {
@@ -35,8 +37,9 @@ const Editor = (() => {
           if (req === 'granted') {
             const file = await doc.fileHandle.getFile();
             doc.content = await file.text();
+          } else {
+            _docReadOnly = true;
           }
-          // If denied: fall through and use cached content
         }
       } catch (_) { /* use cached content */ }
     }
@@ -120,6 +123,7 @@ const Editor = (() => {
     _cmdMode          = false;
     _sessionBaseline  = -1;
     _sessionMaxToday  = 0;
+    _docReadOnly      = false;
     State.doc   = null;
     State.dirty = false;
     document.title = 'Writhdeck';
@@ -168,20 +172,35 @@ const Editor = (() => {
     State.doc.modified = Date.now();
 
     if (State.doc.fileHandle) {
+      // If already known read-only, redirect to Save As
+      if (_docReadOnly) {
+        setMsg(t('editor_msg_readonly', 'File is read-only'));
+        await saveAs();
+        return;
+      }
       // Save to disk (File System Access API)
       try {
         const perm = await State.doc.fileHandle.queryPermission({ mode: 'readwrite' });
         if (perm !== 'granted') {
           const req = await State.doc.fileHandle.requestPermission({ mode: 'readwrite' });
-          if (req !== 'granted') { setMsg(t('editor_msg_permission_denied', 'Permission denied')); return; }
+          if (req !== 'granted') {
+            _docReadOnly = true;
+            updateStatusBar();
+            setMsg(t('editor_msg_readonly', 'File is read-only'));
+            await saveAs();
+            return;
+          }
         }
         const writable = await State.doc.fileHandle.createWritable();
         await writable.write(State.doc.content);
         await writable.close();
         setMsg(t('editor_msg_saved_to_disk', 'Saved to disk'));
       } catch (e) {
-        setMsg(t('editor_msg_disk_save_failed', 'Disk save failed'));
+        _docReadOnly = true;
+        updateStatusBar();
+        setMsg(t('editor_msg_readonly', 'File is read-only'));
         console.error(e);
+        await saveAs();
         return;
       }
     }
@@ -388,7 +407,7 @@ const Editor = (() => {
         const l = ls[i] || '';
         return !l.trim()
           || (s.headingMarker && l.startsWith(s.headingMarker))
-          || (s.markdownHeadings && /^#{1,6}\s/.test(l))
+          || (s.markdownSupport && /^#{1,6}\s/.test(l))
           || (s.commentMarker && l.startsWith(s.commentMarker));
       };
       paraStart = idx; paraEnd = idx;
@@ -854,7 +873,11 @@ const Editor = (() => {
     function buildZone(spec) {
       return spec.split(/\s+/).map(tok => {
         switch (tok) {
-          case 'filename': return doc ? doc.name : '';
+          case 'filename': {
+            const name = doc ? doc.name : '';
+            if (_docReadOnly && doc) return name + ' [' + t('editor_status_readonly', 'read-only') + ']';
+            return name;
+          }
           case 'dirty':    return State.dirty ? '[+]' : '';
           case 'words':    return doc ? `${wc()}w` : '';
           case 'chars':    return doc ? `${(ta().value || '').length}c` : '';

@@ -43,14 +43,25 @@ function _markupRule(marker) {
 // highlight() pass and the incremental single-line repaint fast path.
 function _renderLine(line, s, hm, cm, markupRules, dim) {
   const esc = escapeHtml(line);
+  let headingLevel = 0;
   if (hm && line.startsWith(s.headingMarker)) {
-    return `<span class="hl-heading${dim ? ' hl-dim' : ''}">${esc}</span>`;
+    const ml = s.headingMarker.length;
+    while (line.startsWith(s.headingMarker.repeat(headingLevel + 1))) headingLevel++;
+  } else if (s.markdownSupport) {
+    const m = line.match(/^(#{1,6})\s/);
+    if (m) headingLevel = m[1].length;
   }
-  if (s.markdownHeadings && /^#{1,6}\s/.test(line)) {
-    return `<span class="hl-heading${dim ? ' hl-dim' : ''}">${esc}</span>`;
+  if (headingLevel > 0) {
+    const lvCls = headingLevel <= 4 ? ` hl-h${headingLevel}` : '';
+    return `<span class="hl-heading${lvCls}${dim ? ' hl-dim' : ''}">${esc}</span>`;
   }
   if (cm && line.startsWith(s.commentMarker)) {
     return `<span class="hl-comment${dim ? ' hl-dim' : ''}">${esc}</span>`;
+  }
+  // List item: "- " always, "* " only with Markdown support. Whole line in
+  // the markup colour, like bold/italic spans.
+  if (/^\s*-\s/.test(line) || (s.markdownSupport && /^\s*\*\s/.test(line))) {
+    return `<span class="hl-markup${dim ? ' hl-dim' : ''}">${esc}</span>`;
   }
   if (dim) {
     return `<span class="hl-dim">${esc}</span>`;

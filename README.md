@@ -11,7 +11,7 @@ A distraction-free writing app that runs as a single self-contained HTML file �
 
 - **Single-file**: the entire app is one `writhdeck.html` (~180 KB). Copy it anywhere, it just works.
 - **Document browser**: create, rename, delete, and favourite documents stored in IndexedDB. Document names are unique — duplicates are auto-suggested as `"Untitled (2)"` etc.
-- **Disk file support** (Chrome/Edge/Brave): open individual files or watch a folder — edits go straight back to disk via the File System Access API.
+- **Disk file support** (Chrome/Edge/Brave): open individual files or watch a folder — edits go straight back to disk via the File System Access API. Read-only files are detected (status bar shows `read-only`) and saving redirects to Save As.
 - **Syntax highlighting overlay**: headings, comments, and inline markers (bold, italic, underline, strikethrough) are coloured in real time without leaving the textarea.
 - **Configurable markers**: choose your own syntax for headings, comments, and each inline style. Enable Markdown-style `#` headings if you prefer.
 - **8 built-in colour schemes** (default, solarized, gruvbox, everforest, nord, + 3 more), dark and light variants, and full custom-scheme support.

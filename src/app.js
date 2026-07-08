@@ -289,7 +289,7 @@ async function showAnalyse(docArg) {
         .trim();
       return { level: n, title: title || line.trim() };
     }
-    if (s.markdownHeadings) {
+    if (s.markdownSupport) {
       const m = line.match(/^(#{1,6})\s+(.*)/);
       if (m) return { level: m[1].length, title: m[2].trim() };
     }
@@ -425,6 +425,10 @@ function applyTheme() {
 
   document.getElementById('editor').classList.toggle('block-cursor', !!s.blockCursor);
   document.getElementById('editor').classList.toggle('no-blink', s.blinkCursor === false);
+  document.getElementById('editor').classList.toggle('heading-sizes', !!s.headingSizes);
+
+  const ta = document.getElementById('ed-input');
+  ta.lang = (s.spellLang && s.spellLang !== 'auto') ? s.spellLang : '';
 }
 
 // ── File import ────────────────────────────────────────────────────────────

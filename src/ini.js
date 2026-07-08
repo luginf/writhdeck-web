@@ -21,7 +21,8 @@ const INI_TO_SETTINGS = {
   italic_marker:        ['italicMarker',     'str'],
   underline_marker:     ['underlineMarker',  'str'],
   strikethrough_marker: ['strikeMarker',     'str'],
-  markdown_headings:    ['markdownHeadings', 'bool'],
+  markdown_support:     ['markdownSupport',  'bool'],
+  markdown_headings:    ['markdownSupport',  'bool'],   // deprecated alias
   hemingway_mode:       ['hemingwayMode',    'bool'],
   timer_type:           ['timerType',        'str'],
   timer_duration:       ['timerDuration',    'int'],
@@ -42,6 +43,8 @@ const INI_TO_SETTINGS = {
   browser_show_all:           ['browserShowAll',            'bool'],
   browser_subdirs:            ['browserSubdirs',            'bool'],
   language:                   ['language',                  'str'],
+  spell_lang:                 ['spellLang',                 'str'],
+  heading_sizes:              ['headingSizes',              'bool'],
 };
 
 const SETTINGS_TO_INI = Object.fromEntries(
@@ -50,14 +53,17 @@ const SETTINGS_TO_INI = Object.fromEntries(
 // Fix aliases — keep the canonical INI key for write
 SETTINGS_TO_INI['commentMarker']  = 'comment_marker';
 SETTINGS_TO_INI['fontFamily']     = 'font_family';
+SETTINGS_TO_INI['markdownSupport'] = 'markdown_support';
 
 // Per-profile settings — aligned with the Tcl/Android "profile" key set.
 const PROFILE_KEYS = [
-  'scheme', 'heading_marker', 'markdown_headings',
+  'scheme', 'heading_marker', 'markdown_support',
   'margin_width', 'margin_height', 'word_goal',
   'font_size', 'font_family', 'line_spacing',
   'line_numbers', 'dark_mode', 'block_cursor'
 ];
+// Per-profile keys accepted on parse — includes the deprecated markdown_headings alias.
+const PROFILE_KEYS_PARSE = [...PROFILE_KEYS, 'markdown_headings'];
 const PROFILE_JS_KEYS = PROFILE_KEYS.map(k => INI_TO_SETTINGS[k][0]);
 
 // Scheme color key mapping (INI ↔ JS)
@@ -168,7 +174,7 @@ function parseIni(text) {
       }
     } else if (curProfile) {
       // Per-profile override (12-key aligned set)
-      if (PROFILE_KEYS.includes(key)) {
+      if (PROFILE_KEYS_PARSE.includes(key)) {
         const [jsKey, type] = INI_TO_SETTINGS[key];
         let v = coerceValue(type, val);
         if (key === 'line_spacing') v = lineSpacingFromIni(v);
@@ -233,6 +239,8 @@ function writeIni(s, allSchemes, profiles, activeProfile) {
   out += `open_last_doc                = ${b(s.openLastDoc)}` + nl;
   out += `intercept_browser_shortcuts  = ${b(s.interceptBrowserShortcuts)}` + nl;
   out += `intercept_context_menu       = ${b(s.interceptContextMenu !== false)}` + nl;
+  out += `% spell_lang: "auto" uses the browser default; otherwise sets the spellcheck dictionary (e.g. "fr", "en", "de")` + nl;
+  out += `spell_lang                   = ${s.spellLang || 'auto'}` + nl;
   out += nl;
 
   out += '= timer =' + nl;
@@ -247,6 +255,7 @@ function writeIni(s, allSchemes, profiles, activeProfile) {
   out += `status_left    = ${s.statusLeft   || ''}` + nl;
   out += `status_center  = ${s.statusCenter || ''}` + nl;
   out += `status_right   = ${s.statusRight  || ''}` + nl;
+  out += `heading_sizes  = ${b(s.headingSizes)}` + nl;
   out += nl;
 
   out += '= profiles =' + nl + '[profiles]' + nl;
@@ -264,7 +273,8 @@ function writeIni(s, allSchemes, profiles, activeProfile) {
     out += `line_numbers      = ${b(pv('lineNumbers', false))}` + nl;
     out += `block_cursor      = ${b(pv('blockCursor', false))}` + nl;
     out += `heading_marker    = ${pv('headingMarker', '=')}` + nl;
-    out += `markdown_headings = ${b(pv('markdownHeadings', true))}` + nl;
+    out += `markdown_headings = ${b(pv('markdownSupport', true))}` + nl;
+    out += `markdown_support  = ${b(pv('markdownSupport', true))}` + nl;
     out += nl;
   }
 

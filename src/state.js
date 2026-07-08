@@ -36,7 +36,8 @@ const State = {
     italicMarker: '//',
     underlineMarker: '__',
     strikeMarker: '--',
-    markdownHeadings: true,
+    markdownSupport: true,
+    headingSizes: false,
     wordGoal: 0,
     hemingwayMode: false,
     cursorRestore: true,
@@ -59,7 +60,10 @@ const State = {
     browserSubdirs: true,
     // 'auto' = follow navigator.language; otherwise forces the UI to a specific
     // language regardless of the browser's locale ('en', 'fr', 'es', ...).
-    language: 'auto'
+    language: 'auto',
+    // 'auto' = browser/system default; otherwise sets the `lang` attribute on
+    // the editor textarea so the browser spellchecker uses the right dictionary.
+    spellLang: 'auto'
   },
 
   favorites: [],  // [id, ...]
@@ -146,7 +150,7 @@ function seedProfilesIfMissing() {
   novel.fontSize         = State.settings.fontSize + 2;
   novel.fontFamily       = 'serif';
   novel.lineSpacing      = Math.round(State.settings.lineSpacing * 1.2 * 10) / 10;
-  novel.markdownHeadings = false;
+  novel.markdownSupport = false;
 
   State.profiles = { default: extract(), novel };
   State.activeProfile = 'default';

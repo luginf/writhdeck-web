@@ -52,7 +52,7 @@ const TOC = (() => {
     const entries = [];
     text.split('\n').forEach((line, idx) => {
       let level = 0, title = '';
-      if (s.markdownHeadings) {
+      if (s.markdownSupport) {
         const m = line.match(/^(#{1,3})\s+(.+)/);
         if (m) { level = m[1].length; title = m[2]; }
       }
