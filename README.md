@@ -104,7 +104,8 @@ The status bar becomes an interactive row of command buttons. Works in fullscree
 
 ## Browser notes
 
-- **Disk file support** (open/watch files, edits saved straight back to disk) requires the File System Access API — available in Chrome, Edge, Brave, and other Chromium-based browsers. Firefox falls back to IndexedDB-only storage.
+- **Disk file support** (open/watch files, edits saved straight back to disk) requires the File System Access API — available in Chrome, Edge, and other Chromium-based browsers. Firefox falls back to IndexedDB-only storage.
+- **Brave disables the File System Access API by default** (its own privacy setting, unrelated to this app): if you see "The File System Access API is not available in this browser", go to `brave://flags/#file-system-access-api`, set it to Enabled, and relaunch Brave.
 - **Large documents** (tens of thousands of words): Firefox is noticeably slower than Chromium-based browsers, especially when a full re-render is triggered (search highlighting, Typewriter mode, multi-line edits like paste/undo). Chromium-based browsers are recommended for very large documents.
 - **`Ctrl+Q`**: Firefox intercepts the plain shortcut as its own "Quit" command before the page sees it — use `Ctrl+Shift+Q` to close the document (works in both Firefox and Chrome).
 

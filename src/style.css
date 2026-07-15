@@ -5,6 +5,7 @@
   --bg-bar:  #2a2a2a;
   --fg-bar:  #aaaaaa;
   --bg-sel:  #3a5a8a;
+  --bg-sel-rgb: 58, 90, 138;
   --heading: #c8a060;
   --comment: #606060;
   --markup:  #6aa9d4;
@@ -273,7 +274,26 @@ input[type="color"] { width: 40px; height: 24px; padding: 1px; border: 1px solid
   overflow-x: hidden;
   z-index: 1;
 }
-#ed-input::selection { background: var(--bg-sel); color: var(--fg); }
+/* La sélection visible n'est PAS la sélection native du textarea (voir
+   editor.js `updateSelectionHighlight()`) : elle est reconstruite comme un
+   `Highlight` (CSS Custom Highlight API) sur le texte du `<pre>`
+   #ed-highlight lui-même, peint DANS la même passe que les glyphes (fond
+   d'abord, glyphes par-dessus — texte net, pleine opacité). Donner une
+   couleur à `::selection` du vrai `<textarea>` le rendrait visible avec SES
+   propres métriques de police, qui peuvent différer de quelques pixels de
+   celles du `<pre>` dès qu'une ligne de titre plus haut dans le texte est
+   agrandie via `.heading-sizes` (le textarea ne peut pas avoir une ligne
+   plus haute qu'une autre) — texte sélectionné visuellement décalé (bug
+   confirmé aussi ici, porté depuis zettelium-web où il avait d'abord été
+   repéré — chez zettelium l'agrandissement des titres est permanent, ici il
+   ne se déclenche que si `heading_sizes = true`, d'où une exposition plus
+   rare). `.custom-highlight-supported` (posée par app.js si `CSS.highlights`
+   existe) rend alors la sélection native totalement invisible ; en repli
+   (navigateur sans l'API), on retombe sur un fond translucide plutôt que
+   rien du tout. */
+:root:not(.custom-highlight-supported) #ed-input::selection { background: rgba(var(--bg-sel-rgb), 0.65); }
+.custom-highlight-supported #ed-input::selection { background: transparent; color: transparent; }
+::highlight(ed-selection) { background-color: var(--bg-sel); }
 .block-cursor #ed-input { caret-color: transparent; }
 @keyframes hl-cursor-blink { 0%,49%{opacity:1} 50%,100%{opacity:0} }
 @keyframes caret-show { to { caret-color: var(--fg); } }

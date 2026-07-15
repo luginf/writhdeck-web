@@ -120,6 +120,7 @@ const Editor = (() => {
     stopAutosave();
     stopClock();
     TOC.hide();
+    if (window.CSS && CSS.highlights) CSS.highlights.delete('ed-selection');
     _cmdMode          = false;
     _sessionBaseline  = -1;
     _sessionMaxToday  = 0;
@@ -359,6 +360,7 @@ const Editor = (() => {
       if (pos < lineTxt.length) html += escapeHtml(lineTxt.slice(pos));
       hlLines[idx].innerHTML = html;
     }
+    updateSelectionHighlight(); // les nœuds texte patchés ci-dessus sont neufs
   }
 
   // Locate the line containing offset `pos` in `text` without scanning the
@@ -433,6 +435,7 @@ const Editor = (() => {
     }
     scheduleSyncGutter();
     _applyMarks();
+    updateSelectionHighlight();
   }
 
   // Patches the DOM node for a single changed line instead of replacing the
@@ -489,6 +492,10 @@ const Editor = (() => {
     _prevLineEnd = lineEnd;
     // _prevLineIdx unchanged — same line, no newlines shifted before it
     scheduleSyncGutter();
+    // Cheap in the common case: typing collapses the selection, and
+    // updateSelectionHighlight() bails out immediately (start === end)
+    // before touching the DOM — no TreeWalker cost added to this hot path.
+    updateSelectionHighlight();
     return true;
   }
 
@@ -513,6 +520,7 @@ const Editor = (() => {
     _prevCursorLineIdx = info.idx;
     _prevCursorLineStart = info.lineStart;
     _prevCursorLineEnd = info.lineEnd;
+    updateSelectionHighlight(); // les lignes patchées ci-dessus ont de nouveaux nœuds texte
   }
 
   function _patchCursorLine(idx, lineText, cursorCol) {
@@ -558,6 +566,57 @@ const Editor = (() => {
     if (!State.doc) return;
     State.cursors[State.doc.id] = ta().selectionStart;
     saveCursors();
+  }
+
+  // Trouve le (nœud texte, offset local) du pre #ed-highlight correspondant
+  // à un offset de caractère dans le texte BRUT (ta().value). Les nœuds
+  // texte du pre, parcourus dans l'ordre du document, reconstruisent
+  // exactement ce texte brut caractère pour caractère (highlight() enveloppe
+  // des sous-chaînes dans des <span>, il n'ajoute/ne retire jamais de
+  // caractère à l'intérieur d'une ligne — même principe que
+  // `_tryIncrementalRepaint`/`_applyMarks`, juste lu depuis le DOM plutôt que
+  // depuis le texte source). Voir `updateSelectionHighlight()`.
+  function domPositionForOffset(offset) {
+    const walker = document.createTreeWalker(pre(), NodeFilter.SHOW_TEXT);
+    let remaining = offset;
+    let node, last = null;
+    while ((node = walker.nextNode())) {
+      last = node;
+      const len = node.textContent.length;
+      if (remaining <= len) return { node, offset: remaining };
+      remaining -= len;
+    }
+    return last ? { node: last, offset: last.textContent.length } : null;
+  }
+
+  // Peint la sélection comme un `Highlight` (CSS Custom Highlight API) sur
+  // le texte du pre plutôt que de compter sur `::selection` du vrai
+  // textarea — voir le commentaire de `#ed-input::selection` dans
+  // style.css pour le pourquoi (alignement + contraste du texte
+  // sélectionné, bug confirmé y compris ici dès que `heading_sizes = true`).
+  // À appeler après TOUT changement du DOM de #ed-highlight (rehighlight(),
+  // _tryIncrementalRepaint(), syncBlockCursor(), _applyMarks() — un Range
+  // pointant sur d'anciens nœuds détachés serait silencieusement invalide)
+  // ET à chaque changement de sélection. Sur un navigateur sans l'API, ne
+  // fait rien : le repli CSS (fond de sélection natif translucide) prend le
+  // relais tout seul.
+  function updateSelectionHighlight() {
+    if (!window.CSS || !CSS.highlights) return;
+    const input = ta();
+    const { selectionStart: start, selectionEnd: end } = input;
+    if (start === end) { CSS.highlights.delete('ed-selection'); return; }
+    const from = domPositionForOffset(start);
+    const to = domPositionForOffset(end);
+    if (!from || !to) { CSS.highlights.delete('ed-selection'); return; }
+    const range = new Range();
+    range.setStart(from.node, from.offset);
+    range.setEnd(to.node, to.offset);
+    // `window.Highlight` explicitement, par cohérence avec zettelium-web où
+    // ce même code a dû contourner un masquage de `Highlight` par un module
+    // local du même nom — inoffensif ici (pas de collision dans ce fichier)
+    // mais évite toute surprise si un module `Highlight` était ajouté plus
+    // tard.
+    CSS.highlights.set('ed-selection', new window.Highlight(range));
   }
 
   // ── Status bar ────────────────────────────────────────────────────────────
@@ -1058,7 +1117,7 @@ const Editor = (() => {
 
   return {
     open, close, browser, save, saveAs, onInput, syncScroll, syncGutter, rehighlight, updateStatusBar, setMsg,
-    syncCursorLineCache, syncBlockCursor,
+    syncCursorLineCache, syncBlockCursor, updateSelectionHighlight,
     saveCursorPos, applyLineNumbers,
     toggleTypewriter, isTypewriter, typewriterScroll, toggleLineNumbers, gotoLine, gotoLineGo, gotoLineClose, jumpToLine, jumpToWord, markWords, clearMarks,
     applyLineMarker, applyInlineMarker, applyHeading,

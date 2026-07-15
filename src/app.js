@@ -401,6 +401,14 @@ function toggleFullscreen() {
 
 // ── Theme ──────────────────────────────────────────────────────────────────
 
+// #rrggbb -> "r, g, b" (pour composer une couleur translucide via rgba() en
+// CSS — repli de #ed-input::selection sur un navigateur sans la CSS Custom
+// Highlight API, voir --bg-sel-rgb dans style.css/editor.js).
+function hexToRgbTriplet(hex) {
+  const n = parseInt(hex.slice(1), 16);
+  return `${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}`;
+}
+
 function applyTheme() {
   const s  = State.settings;
   const sc = getScheme(s.scheme);
@@ -412,6 +420,7 @@ function applyTheme() {
   r.setProperty('--bg-bar',  dark ? sc.bgBar   : sc.bgBarAlt);
   r.setProperty('--fg-bar',  dark ? sc.fgBar   : sc.fgBarAlt);
   r.setProperty('--bg-sel',  dark ? sc.bgSel   : sc.bgSelAlt);
+  r.setProperty('--bg-sel-rgb', hexToRgbTriplet(dark ? sc.bgSel : sc.bgSelAlt));
   r.setProperty('--heading', dark ? sc.heading : sc.headingAlt);
   r.setProperty('--comment', dark ? sc.comment : sc.commentAlt);
   r.setProperty('--markup',  dark ? sc.markup  : sc.markupAlt);
@@ -724,6 +733,11 @@ function onKeydown(e) {
 // ── Init ──────────────────────────────────────────────────────────────────
 
 async function init() {
+  // Utilisée par editor.js pour peindre la sélection comme un `Highlight`
+  // (CSS Custom Highlight API) sur l'overlay plutôt que via `::selection` du
+  // vrai textarea — voir le commentaire de `#ed-input::selection` dans
+  // style.css. Chromium seulement (support depuis 2022).
+  document.documentElement.classList.toggle('custom-highlight-supported', !!(window.CSS && CSS.highlights));
   await DB.open();
   await loadState();
   await Fonts.load();   // register user-uploaded fonts before first paint
@@ -770,6 +784,16 @@ async function init() {
   // and move the block-cursor span (if enabled) without a full rehighlight().
   ta.addEventListener('click',   () => { Editor.syncCursorLineCache(); Editor.updateStatusBar(); Editor.syncBlockCursor(); });
   ta.addEventListener('keyup',   () => { Editor.syncCursorLineCache(); Editor.updateStatusBar(); Editor.syncBlockCursor(); });
+  // `selectionchange` couvre tous les cas (glisser-déposer, clavier avec
+  // Maj, sélectionner tout, ...) en un seul listener — filtré à quand le
+  // textarea a le focus. Voir Editor.updateSelectionHighlight() / le
+  // commentaire de `#ed-input::selection` dans style.css.
+  document.addEventListener('selectionchange', () => {
+    if (document.activeElement === ta) Editor.updateSelectionHighlight();
+  });
+  ta.addEventListener('blur', () => {
+    if (window.CSS && CSS.highlights) CSS.highlights.delete('ed-selection');
+  });
 
   // Header buttons
   document.getElementById('br-new-btn').addEventListener('click',    () => Browser.newDoc());
