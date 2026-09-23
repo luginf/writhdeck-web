@@ -41,6 +41,14 @@ const State = {
     wordGoal: 0,
     hemingwayMode: false,
     cursorRestore: true,
+    // 'path' (default, historical behavior): a folder-backed document's cursor
+    // position/daily word stats are keyed by its path relative to the watched folder
+    // ('dir:sub/name.txt') - moving/renaming it into another subfolder loses them.
+    // 'name': keyed by filename only ('dir:name.txt') - survives a move/rename into
+    // another subfolder, at the cost of two files sharing a filename in different
+    // subfolders then sharing one saved position/history. No effect on IndexedDB-only
+    // documents (their id is a plain autoincrement number, not path-shaped).
+    cursorKeyMode: 'path',
     openLastDoc: false,
     timerType: 'countdown',
     timerDuration: 25,
@@ -58,6 +66,10 @@ const State = {
     browserFilter: '*.txt *.t2t *.md *.ini',
     browserShowAll: false,
     browserSubdirs: true,
+    // Sentence-length analysis thresholds (words): short <= sentenceShortMax,
+    // long >= sentenceLongMin, medium in between. Shared INI keys with the Tcl version.
+    sentenceShortMax: 7,
+    sentenceLongMin: 16,
     // 'auto' = follow navigator.language; otherwise forces the UI to a specific
     // language regardless of the browser's locale ('en', 'fr', 'es', ...).
     language: 'auto',
@@ -314,16 +326,38 @@ function toggleFavorite(id) {
 
 function isFavorite(id) { return State.favorites.includes(id); }
 
+// ── Cursor / daily-stats key ──────────────────────────────────────────────
+// See State.settings.cursorKeyMode above. Only 'dir:'-prefixed ids (folder-backed
+// documents, see scanDir()/browser.js) are path-shaped; IndexedDB-only documents keep
+// their plain numeric id unchanged either way.
+function statKey(id) {
+  if (typeof id === 'string' && id.startsWith('dir:') && State.settings.cursorKeyMode === 'name') {
+    return 'dir:' + id.slice(4).split('/').pop();
+  }
+  return id;
+}
+
+// ── Cursor position ────────────────────────────────────────────────────────
+
+function getCursor(id) { return State.cursors[statKey(id)] || 0; }
+
+function setCursor(id, offset) {
+  State.cursors[statKey(id)] = offset;
+  saveCursors();
+}
+
 // ── Daily stats — high-water mark ─────────────────────────────────────────
 
 function updateDaily(id, added) {
+  const key = statKey(id);
   const today = new Date().toISOString().slice(0, 10);
-  if (!State.daily[id]) State.daily[id] = {};
-  const prev = State.daily[id][today] || 0;
-  if (added > prev) { State.daily[id][today] = added; saveDaily(); }
+  if (!State.daily[key]) State.daily[key] = {};
+  const prev = State.daily[key][today] || 0;
+  if (added > prev) { State.daily[key][today] = added; saveDaily(); }
 }
 
 function todayWords(id) {
+  const key = statKey(id);
   const today = new Date().toISOString().slice(0, 10);
-  return (State.daily[id] && State.daily[id][today]) || 0;
+  return (State.daily[key] && State.daily[key][today]) || 0;
 }

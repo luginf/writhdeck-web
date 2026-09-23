@@ -33,6 +33,7 @@ const INI_TO_SETTINGS = {
   status_center:        ['statusCenter',     'str'],
   status_right:         ['statusRight',      'str'],
   cursor_restore:             ['cursorRestore',             'bool'],
+  cursor_key_mode:            ['cursorKeyMode',             'str'],
   line_numbers:               ['lineNumbers',               'bool'],
   block_cursor:               ['blockCursor',               'bool'],
   blink_cursor:               ['blinkCursor',               'bool'],
@@ -42,6 +43,8 @@ const INI_TO_SETTINGS = {
   browser_filter:             ['browserFilter',             'str'],
   browser_show_all:           ['browserShowAll',            'bool'],
   browser_subdirs:            ['browserSubdirs',            'bool'],
+  sentence_short_max:         ['sentenceShortMax',          'int'],
+  sentence_long_min:          ['sentenceLongMin',           'int'],
   language:                   ['language',                  'str'],
   spell_lang:                 ['spellLang',                 'str'],
   heading_sizes:              ['headingSizes',              'bool'],
@@ -225,6 +228,8 @@ function writeIni(s, allSchemes, profiles, activeProfile) {
   out += '= behaviour =' + nl + '[behaviour]' + nl;
   out += `hemingway_mode  = ${b(s.hemingwayMode)}` + nl;
   out += `cursor_restore               = ${b(s.cursorRestore !== false)}` + nl;
+  out += `% cursor_key_mode: "path" (per subfolder location, default) or "name" (by filename only, ignoring its subfolder)` + nl;
+  out += `cursor_key_mode              = ${s.cursorKeyMode === 'name' ? 'name' : 'path'}` + nl;
   out += `blink_cursor                 = ${b(s.blinkCursor)}` + nl;
   out += `% browser_filter: space-separated glob patterns (* ? [...]) for the browser file list` + nl;
   out += `browser_filter  = ${s.browserFilter ?? '*.txt *.t2t *.md *.ini'}` + nl;
@@ -232,6 +237,10 @@ function writeIni(s, allSchemes, profiles, activeProfile) {
   out += `browser_show_all = ${b(s.browserShowAll)}` + nl;
   out += `% browser_subdirs: scan and browse subfolders inside the watched folder` + nl;
   out += `browser_subdirs  = ${b(s.browserSubdirs)}` + nl;
+  out += `% sentence_short_max / sentence_long_min: word thresholds of the sentence-length tool` + nl;
+  out += `% (short = up to short_max words, long = long_min words or more, medium = in between)` + nl;
+  out += `sentence_short_max = ${s.sentenceShortMax > 0 ? s.sentenceShortMax : 7}` + nl;
+  out += `sentence_long_min  = ${s.sentenceLongMin > 1 ? s.sentenceLongMin : 16}` + nl;
   out += nl;
 
   out += '= web =' + nl + '[web]' + nl;

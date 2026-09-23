@@ -516,6 +516,7 @@ dialog::backdrop { background: rgba(0,0,0,0.5); }
 }
 .toc-item:hover { background: var(--bg-sel); }
 .toc-item.toc-focused { box-shadow: inset 3px 0 0 var(--heading); background: var(--bg-sel); }
+.toc-item.toc-current { box-shadow: inset 3px 0 0 var(--markup); font-weight: bold; }
 .toc-item.level-2 { padding-left: 22px; color: var(--fg-bar); }
 .toc-item.level-3 { padding-left: 32px; color: var(--fg-bar); font-size: 0.8em; }
 
@@ -551,6 +552,16 @@ dialog::backdrop { background: rgba(0,0,0,0.5); }
 .info-storage-disk    { color: var(--heading); }
 .info-storage-browser { color: var(--markup); }
 
+/* Analysis tools menu */
+#amenu-dlg { width: 320px; }
+#amenu-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 8px 12px; background: var(--bg-bar);
+}
+#amenu-doc { padding: 8px 16px 0; color: var(--fg-bar); font-size: 0.85em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#amenu-body { display: flex; flex-direction: column; gap: 6px; padding: 10px 16px 14px; }
+#amenu-body button { text-align: left; padding: 6px 10px; }
+
 /* Analyse */
 #analyse-dlg { width: 480px; }
 #analyse-header {
@@ -567,7 +578,6 @@ dialog::backdrop { background: rgba(0,0,0,0.5); }
 .analyse-bar { height: 5px; min-width: 2px; border-radius: 3px; background: var(--heading); flex-shrink: 0; }
 .analyse-stats { color: var(--fg-bar); font-size: 0.82em; white-space: nowrap; }
 .analyse-footer { padding: 8px 0 4px; color: var(--fg-bar); font-size: 0.82em; }
-#analyse-words-btn { font-size: 0.75em; padding: 1px 6px; margin-right: 4px; }
 
 /* Repetitions — non-modal, draggable */
 #rep-dlg {
@@ -588,7 +598,32 @@ dialog::backdrop { background: rgba(0,0,0,0.5); }
 .rep-line { cursor: pointer; }
 .rep-line:hover { color: var(--fg); text-decoration: underline; }
 .rep-dist { margin-left: auto; color: var(--fg-bar); font-size: 0.78em; white-space: nowrap; }
-#analyse-rep-btn { font-size: 0.75em; padding: 1px 6px; margin-right: 4px; }
+
+/* Sentence length - the .sl-* classes are also the editor overlay marks
+   (sentences.js / highlight.js); colours are set per theme in applyTheme() */
+.sl-short  { background: var(--sl-short); }
+.sl-medium { background: var(--sl-medium); }
+.sl-long   { background: var(--sl-long); }
+#sent-dlg {
+  width: 440px; position: fixed; top: 60px; right: 20px; left: auto; margin: 0;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.4); z-index: 900;
+}
+#sent-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 8px 12px; background: var(--bg-bar); cursor: grab; user-select: none;
+}
+#sent-header:active { cursor: grabbing; }
+#sent-header button { cursor: default; }
+#sent-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; padding: 8px 16px 0; font-size: 0.85em; }
+#sent-controls label { display: flex; align-items: center; gap: 6px; }
+#sent-controls input { width: 4.5em; }
+#sent-legend { display: flex; flex-wrap: wrap; gap: 6px; padding: 8px 16px 0; font-size: 0.8em; }
+#sent-body { padding: 4px 16px 6px; font-size: 0.9em; max-height: 55vh; overflow-y: auto; }
+.sent-chip { padding: 1px 6px; border-radius: 2px; color: var(--fg); white-space: nowrap; }
+.sent-bar { display: flex; height: 6px; border-radius: 3px; overflow: hidden; background: var(--bg-bar); margin: 2px 0 4px; }
+.sent-bar span { display: block; height: 100%; }
+.sent-stats { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; font-size: 0.8em; }
+.sent-count { color: var(--fg-bar); margin-left: auto; white-space: nowrap; }
 
 /* Word occurrences */
 #words-dlg { width: 340px; }
@@ -596,11 +631,33 @@ dialog::backdrop { background: rgba(0,0,0,0.5); }
   display: flex; align-items: center; justify-content: space-between;
   padding: 8px 12px; background: var(--bg-bar);
 }
+#words-controls { display: flex; align-items: center; gap: 6px; padding: 8px 12px 0; }
+#words-search { flex: 1; min-width: 0; font-size: 0.85em; padding: 3px 6px; }
+.words-sort-btn { font-size: 0.75em; padding: 2px 8px; }
+.words-sort-btn.active { background: var(--bg-sel); color: var(--fg); }
 #words-body { padding: 6px 12px; font-size: 0.85em; max-height: 65vh; overflow-y: auto; }
 .words-table { width: 100%; border-collapse: collapse; }
 .words-table th, .words-table td { padding: 3px 8px; text-align: left; }
 .words-table th { color: var(--fg-bar); border-bottom: 1px solid var(--bg-bar); position: sticky; top: 0; background: var(--bg); }
 .words-table td:last-child { text-align: right; color: var(--fg-bar); }
+.words-table tr.words-row-hit { background: var(--bg-sel); }
+
+/* Occurrences by chapter */
+#chapter-occ-dlg { width: 560px; padding: 0; }
+#chapter-occ-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 8px 12px; background: var(--bg-bar);
+}
+#chapter-occ-main { display: flex; max-height: 68vh; }
+#chapter-occ-body { flex: 1; min-width: 0; padding: 8px 16px 12px; font-size: 0.85em; overflow-y: auto; }
+.chapocc-heading { color: var(--heading); font-weight: bold; margin: 14px 0 4px; }
+.chapocc-heading:first-child { margin-top: 0; }
+.chapocc-empty { color: var(--fg-bar); padding: 0 0 8px; }
+#chapter-occ-side {
+  width: 200px; flex-shrink: 0;
+  background: var(--bg-bar); border-left: 1px solid var(--bg2);
+  overflow-y: auto; padding: 4px 0;
+}
 
 /* Stats */
 #stats-dlg { width: 400px; }

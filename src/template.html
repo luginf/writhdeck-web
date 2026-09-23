@@ -145,6 +145,7 @@
   <button data-cmd="analyse"><span data-i18n="tpl_menu_analyse">Analyse</span> <span class="hint">a</span></button>
   <button data-cmd="word-occ" data-i18n="tpl_menu_word_occ">Word occurrences</button>
   <button data-cmd="repetitions" data-i18n="tpl_menu_repetitions">Repetitions</button>
+  <button data-cmd="chapter-occ" data-i18n="tpl_menu_chapter_occ">Occurrences by chapter</button>
   <button data-cmd="info"><span data-i18n="tpl_menu_file_info">File info</span> <span class="hint">i</span></button>
   <div class="more-sep"></div>
   <div class="more-label" data-i18n="tpl_menu_section_app">App</div>
@@ -294,6 +295,12 @@
         </select>
       </label>
       <label><input type="checkbox" data-key="cursorRestore"> <span data-i18n="tpl_settings_misc_cursor_restore">Restore cursor position on open</span></label>
+      <label><span data-i18n="tpl_settings_misc_cursor_key_mode">Remember position/stats by</span>
+        <select data-key="cursorKeyMode">
+          <option value="path" data-i18n="tpl_settings_misc_cursor_key_mode_path">Exact location (default)</option>
+          <option value="name" data-i18n="tpl_settings_misc_cursor_key_mode_name">Filename only</option>
+        </select>
+      </label>
       <label><input type="checkbox" data-key="openLastDoc"> <span data-i18n="tpl_settings_misc_open_last_doc">Open last document on startup</span></label>
       <p class="hint" style="margin-top:12px" data-i18n="tpl_settings_misc_watched_folder">Watched folder browser</p>
       <label><span data-i18n="tpl_settings_misc_file_filter">File filter</span><input type="text" data-key="browserFilter"></label>
@@ -329,12 +336,28 @@
   <div id="info-body"></div>
 </dialog>
 
-<!-- Analyse dialog -->
+<!-- Analysis tools menu (chooser, like the desktop version) -->
+<dialog id="amenu-dlg">
+  <div id="amenu-header">
+    <span id="amenu-title" data-i18n="tpl_dialog_amenu_title">Analysis tools</span>
+    <button id="amenu-close" data-i18n-title="tpl_dialog_close_btn" title="Close">✕</button>
+  </div>
+  <div id="amenu-doc"></div>
+  <div id="amenu-body">
+    <button id="amenu-structure" data-i18n="tpl_dialog_analyse_title">Structure</button>
+    <button id="amenu-rep" data-i18n="tpl_dialog_rep_title">Repetitions</button>
+    <button id="amenu-words" data-i18n="tpl_dialog_words_title">Word occurrences</button>
+    <button id="amenu-chapters" data-i18n="tpl_dialog_chapter_occ_title">Occurrences by chapter</button>
+    <button id="amenu-sent" data-i18n="tpl_dialog_sent_title">Sentence length</button>
+    <button id="amenu-spell" data-i18n="tpl_dialog_amenu_spell">Spelling</button>
+    <button id="amenu-syn" data-i18n="tpl_dialog_amenu_syn">Synonyms</button>
+  </div>
+</dialog>
+
+<!-- Analyse dialog (structure) -->
 <dialog id="analyse-dlg">
   <div id="analyse-header">
     <span id="analyse-title" data-i18n="tpl_dialog_analyse_title">Structure</span>
-    <button id="analyse-words-btn" data-i18n-title="tpl_dialog_analyse_words_btn" title="Word occurrences">abc</button>
-    <button id="analyse-rep-btn" data-i18n-title="tpl_dialog_analyse_rep_btn" title="Repetitions">rep</button>
     <button id="analyse-close" data-i18n-title="tpl_dialog_close_btn" title="Close">✕</button>
   </div>
   <div id="analyse-body"></div>
@@ -349,13 +372,48 @@
   <div id="rep-body"></div>
 </dialog>
 
+<!-- Sentence length dialog (non-modal, draggable) -->
+<dialog id="sent-dlg">
+  <div id="sent-header">
+    <span id="sent-title" data-i18n="tpl_dialog_sent_title">Sentence length</span>
+    <button id="sent-close" data-i18n-title="tpl_dialog_close_btn" title="Close">✕</button>
+  </div>
+  <div id="sent-controls">
+    <label><span data-i18n="tpl_dialog_sent_short_max">Short sentences up to (words)</span>
+      <input type="number" id="sent-short-max" min="1" max="999"></label>
+    <label><span data-i18n="tpl_dialog_sent_long_min">Long sentences from (words)</span>
+      <input type="number" id="sent-long-min" min="2" max="1000"></label>
+    <button id="sent-hl-btn" hidden></button>
+  </div>
+  <div id="sent-legend"></div>
+  <div id="sent-body"></div>
+</dialog>
+
 <!-- Word occurrences dialog -->
 <dialog id="words-dlg">
   <div id="words-header">
     <span id="words-title" data-i18n="tpl_dialog_words_title">Word occurrences</span>
     <button id="words-close" data-i18n-title="tpl_dialog_close_btn" title="Close">✕</button>
   </div>
+  <div id="words-controls">
+    <input type="text" id="words-search" placeholder="Search...">
+    <button id="words-sort-count" class="words-sort-btn active" data-sort="count" data-i18n="tpl_dialog_words_by_count">By count</button>
+    <button id="words-sort-alpha" class="words-sort-btn" data-sort="alpha">A-Z</button>
+  </div>
   <div id="words-body"></div>
+</dialog>
+
+<!-- Occurrences by chapter dialog -->
+<dialog id="chapter-occ-dlg">
+  <div id="chapter-occ-header">
+    <span id="chapter-occ-title" data-i18n="tpl_dialog_chapter_occ_title">Occurrences by chapter</span>
+    <button id="chapter-occ-toc-btn" data-i18n-title="tpl_dialog_chapter_occ_toc_btn" title="Chapters (F11)">☰</button>
+    <button id="chapter-occ-close" data-i18n-title="tpl_dialog_close_btn" title="Close">✕</button>
+  </div>
+  <div id="chapter-occ-main">
+    <div id="chapter-occ-body"></div>
+    <div id="chapter-occ-side" hidden></div>
+  </div>
 </dialog>
 
 <!-- Stats dialog -->

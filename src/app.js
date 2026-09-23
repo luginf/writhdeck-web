@@ -21,6 +21,25 @@ function showMainMenu() {
   setTimeout(() => { _edMenu.hidden = false; }, 0);
 }
 
+// Reads a document's content: the live textarea value when it's the open
+// document (doc.content is only synced back on save, so reading it directly
+// would show stale text for unsaved edits), otherwise its on-disk file
+// handle or the IndexedDB copy. Shared by showFileInfo/showRepetitions/
+// showWordOcc/showAnalyse/showChapterOcc/showSentences.
+async function resolveDocContent(doc) {
+  let content = (doc === State.doc) ? document.getElementById('ed-input').value : doc.content;
+  if (content == null) {
+    if (doc.fileHandle) {
+      try { const f = await doc.fileHandle.getFile(); content = await f.text(); }
+      catch(_) { content = ''; }
+    } else if (doc.id && typeof doc.id === 'number') {
+      const full = await DB.getDoc(doc.id);
+      content = full ? full.content : '';
+    } else { content = ''; }
+  }
+  return content;
+}
+
 // ── File info dialog ──────────────────────────────────────────────────────
 
 async function showFileInfo(docArg) {
@@ -29,8 +48,11 @@ async function showFileInfo(docArg) {
   const body = document.getElementById('info-body');
   body.innerHTML = '';
 
-  const wc = (doc.content || '').match(/\S+/g)?.length || 0;
-  const cc = (doc.content || '').length;
+  const content = await resolveDocContent(doc);
+
+  const wc   = (content.match(/\S+/g) || []).length;
+  const wcNc = wordCountNoComments(content, State.settings.commentMarker);
+  const cc   = content.length;
 
   // Build storage label with best available path info
   let storageLabel;
@@ -54,6 +76,7 @@ async function showFileInfo(docArg) {
     [t('app_info_label_name', 'Name'),     doc.name],
     [t('app_info_label_storage', 'Storage'),  storageLabel],
     [t('app_info_label_words', 'Words'),    wc.toLocaleString()],
+    [t('app_info_label_words_nc', 'Words (no comments)'), wcNc.toLocaleString()],
     [t('app_info_label_chars', 'Chars'),    cc.toLocaleString()],
     [t('app_info_label_created', 'Created'),  doc.created  ? new Date(doc.created).toLocaleString()  : '—'],
     [t('app_info_label_modified', 'Modified'), doc.modified ? new Date(doc.modified).toLocaleString() : '—']
@@ -145,21 +168,19 @@ async function showRepetitions(docArg) {
   const doc = docArg || State.doc;
   if (!doc) return;
 
-  let content = (doc === State.doc) ? document.getElementById('ed-input').value : doc.content;
-  if (content == null) {
-    if (doc.fileHandle) {
-      try { const f = await doc.fileHandle.getFile(); content = await f.text(); }
-      catch(_) { content = ''; }
-    } else if (doc.id && typeof doc.id === 'number') {
-      const full = await DB.getDoc(doc.id);
-      content = full ? full.content : '';
-    } else { content = ''; }
-  }
-
+  const content = await resolveDocContent(doc);
   const reps = findRepetitions(content);
   const body = document.getElementById('rep-body');
   body.innerHTML = '';
   const inEditor = doc === State.doc;
+
+  // Editor's current cursor line (1-based, matching line1/line2 below), or
+  // 0 if unknown (e.g. shown for a document that isn't the open one) - used
+  // to open the list already scrolled near where the user is writing.
+  const curLine = inEditor
+    ? document.getElementById('ed-input').value.substring(0, document.getElementById('ed-input').selectionStart).split('\n').length
+    : 0;
+  let bestRow = null, bestDiff = Infinity;
 
   if (!reps.length) {
     const p = document.createElement('p');
@@ -196,6 +217,10 @@ async function showRepetitions(docArg) {
       row.appendChild(lSpan);
       row.appendChild(dSpan);
       body.appendChild(row);
+      if (curLine > 0) {
+        const diff = Math.abs(line1 - curLine);
+        if (diff < bestDiff) { bestDiff = diff; bestRow = row; }
+      }
     });
   }
 
@@ -205,54 +230,195 @@ async function showRepetitions(docArg) {
   // Reset to default position (top-right) before showing
   dlg.style.left = ''; dlg.style.top = ''; dlg.style.right = '';
   if (!dlg.open) dlg.show();
+  if (bestRow) bestRow.scrollIntoView({ block: 'center' }); else body.scrollTop = 0;
 }
 
 // ── Word occurrences dialog ───────────────────────────────────────────────
+
+// Counts word occurrences (>= 3 letters) in a chunk of text, sorted by count
+// descending. Shared by showWordOcc (whole document) and showChapterOcc (one
+// chapter's text slice at a time).
+function countWordOccurrences(content) {
+  const counts = {};
+  const words = content.toLowerCase().match(/[\wÀ-ɏ]+/g) || [];
+  words.forEach(w => { if (w.length >= 3) counts[w] = (counts[w] || 0) + 1; });
+  return Object.entries(counts).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+}
+
+let _wordsSort = 'count'; // 'count' | 'alpha' - current sort mode of #words-dlg
+let _wordsData = [];      // count-sorted [[word,count],...] for the open document
+
+function renderWordsTable() {
+  const body = document.getElementById('words-body');
+  body.innerHTML = '';
+  if (!_wordsData.length) {
+    const empty = document.createElement('p');
+    empty.style.cssText = 'color:var(--fg-bar);padding:12px 0';
+    empty.textContent = t('app_words_empty', 'No words found.');
+    body.appendChild(empty);
+    return;
+  }
+  const sorted = _wordsSort === 'alpha'
+    ? [..._wordsData].sort((a, b) => a[0].localeCompare(b[0]))
+    : _wordsData;
+  const table = document.createElement('table');
+  table.className = 'words-table';
+  table.innerHTML = `<tr><th>${t('app_words_col_word', 'Word')}</th><th>${t('app_words_col_count', '#')}</th></tr>`;
+  sorted.forEach(([word, count]) => {
+    const tr = document.createElement('tr');
+    tr.dataset.word = word;
+    tr.innerHTML = `<td>${word}</td><td>${count}</td>`;
+    table.appendChild(tr);
+  });
+  body.appendChild(table);
+}
+
+function wordsSetSort(mode) {
+  _wordsSort = mode;
+  document.querySelectorAll('.words-sort-btn').forEach(b => b.classList.toggle('active', b.dataset.sort === mode));
+  renderWordsTable();
+}
+
+// Jumps to and highlights the first word starting with (or, failing that,
+// containing) the current search text. Works in either sort mode, but reads
+// naturally as a type-ahead jump once sorted alphabetically.
+function wordsSearchJump(raw) {
+  const rows = Array.from(document.querySelectorAll('#words-body tr[data-word]'));
+  rows.forEach(r => r.classList.remove('words-row-hit'));
+  const needle = raw.trim().toLowerCase();
+  if (!needle) return;
+  const match = rows.find(r => r.dataset.word.startsWith(needle))
+             || rows.find(r => r.dataset.word.includes(needle));
+  if (match) {
+    match.classList.add('words-row-hit');
+    match.scrollIntoView({ block: 'center' });
+  }
+}
 
 async function showWordOcc(docArg) {
   const doc = docArg || State.doc;
   if (!doc) return;
 
-  let content = (doc === State.doc) ? document.getElementById('ed-input').value : doc.content;
-  if (content == null) {
-    if (doc.fileHandle) {
-      try { const f = await doc.fileHandle.getFile(); content = await f.text(); }
-      catch(_) { content = ''; }
-    } else if (doc.id && typeof doc.id === 'number') {
-      const full = await DB.getDoc(doc.id);
-      content = full ? full.content : '';
-    } else { content = ''; }
-  }
-
-  const counts = {};
-  const words = content.toLowerCase().match(/[\wÀ-ɏ]+/g) || [];
-  words.forEach(w => { if (w.length >= 3) counts[w] = (counts[w] || 0) + 1; });
-
-  const sorted = Object.entries(counts)
-    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
-
-  const body = document.getElementById('words-body');
-  body.innerHTML = '';
-
-  if (!sorted.length) {
-    const empty = document.createElement('p');
-    empty.style.cssText = 'color:var(--fg-bar);padding:12px 0';
-    empty.textContent = t('app_words_empty', 'No words found.');
-    body.appendChild(empty);
-  } else {
-    const table = document.createElement('table');
-    table.className = 'words-table';
-    table.innerHTML = `<tr><th>${t('app_words_col_word', 'Word')}</th><th>${t('app_words_col_count', '#')}</th></tr>`;
-    sorted.forEach(([word, count]) => {
-      const tr = document.createElement('tr');
-      tr.innerHTML = `<td>${word}</td><td>${count}</td>`;
-      table.appendChild(tr);
-    });
-    body.appendChild(table);
-  }
+  const content = await resolveDocContent(doc);
+  _wordsData = countWordOccurrences(content);
+  const searchInput = document.getElementById('words-search');
+  searchInput.value = '';
+  searchInput.placeholder = t('app_words_search_placeholder', 'Search...');
+  wordsSetSort('count');
 
   document.getElementById('words-title').textContent = t('app_words_title', 'Word occurrences — ${name}', { name: doc.name });
   document.getElementById('words-dlg').showModal();
+}
+
+// ── Heading / chapter splitting (shared by showAnalyse and showChapterOcc) ─
+
+function parseHeadingLine(line, s) {
+  if (s.headingMarker && line.startsWith(s.headingMarker)) {
+    let n = 1;
+    while (n < 3 && line.startsWith(s.headingMarker.repeat(n + 1))) n++;
+    const mEsc = escRx(s.headingMarker);
+    const title = line
+      .replace(new RegExp('^' + mEsc + '+\\s*'), '')
+      .replace(new RegExp('\\s*' + mEsc + '+\\s*$'), '')
+      .trim();
+    return { level: n, title: title || line.trim() };
+  }
+  if (s.markdownSupport) {
+    const m = line.match(/^(#{1,6})\s+(.*)/);
+    if (m) return { level: m[1].length, title: m[2].trim() };
+  }
+  return null;
+}
+
+// Splits content into chapters exactly the way showAnalyse splits into
+// sections (content before the first heading, then one chunk per heading),
+// but keeps each chapter's own text instead of just its word count - used by
+// showChapterOcc. title === null for the leading (pre-heading) chunk.
+function splitChapters(content, s) {
+  const chapters = [];
+  let curTitle = null, curLevel = 0, curLines = [];
+  content.split('\n').forEach(line => {
+    const h = parseHeadingLine(line, s);
+    if (h) {
+      chapters.push({ title: curTitle, level: curLevel, text: curLines.join('\n') });
+      curTitle = h.title; curLevel = h.level; curLines = [];
+    } else {
+      curLines.push(line);
+    }
+  });
+  chapters.push({ title: curTitle, level: curLevel, text: curLines.join('\n') });
+  return chapters;
+}
+
+// ── Analysis tools menu ───────────────────────────────────────────────────
+//
+// First screen of Analyse (same idea as the desktop `analyse-dialog`): a small
+// chooser listing every analysis tool. Picking one closes the menu, then opens
+// the tool for the same document. Up/Down move between entries (buttons are
+// also reachable with Tab); Escape closes (native <dialog>).
+
+let _amenuDoc = null;
+
+function showAnalyseMenu(docArg) {
+  const doc = docArg || State.doc;
+  if (!doc) return;
+  _amenuDoc = doc;
+  document.getElementById('amenu-doc').textContent = doc.name;
+  // Spelling toggles the editor's native spellcheck: only for the open document.
+  document.getElementById('amenu-spell').disabled = doc !== State.doc;
+  const dlg = document.getElementById('amenu-dlg');
+  dlg.showModal();
+  document.getElementById('amenu-structure').focus();
+}
+
+// Spelling: the web app has no dictionary of its own, so this flips the
+// browser's native spellcheck on the editor (same switch as the right-click menu).
+function toggleSpellcheck() {
+  const ta = document.getElementById('ed-input');
+  ta.spellcheck = !ta.spellcheck;
+  Editor.setMsg(ta.spellcheck
+    ? t('app_ctxmenu_spellcheck_on', 'Spell check: on')
+    : t('app_ctxmenu_spellcheck_off', 'Spell check: off'));
+}
+
+// Synonyms: no thesaurus is bundled, so open an online one in a new tab, for
+// the selected word, else the word under the cursor, else a typed one. The
+// site depends on the spellcheck language (or the UI language when "auto").
+const SYN_SITES = {
+  fr: w => `https://www.cnrtl.fr/synonymie/${w}`,
+  en: w => `https://www.thesaurus.com/browse/${w}`,
+  de: w => `https://www.openthesaurus.de/synonyme/${w}`,
+  es: w => `https://www.wordreference.com/sinonimos/${w}`,
+  pt: w => `https://www.sinonimos.com.br/${w}/`,
+};
+
+function openSynonyms(doc) {
+  let word = '';
+  if (doc === State.doc) {
+    const ta = document.getElementById('ed-input');
+    const { value, selectionStart: a, selectionEnd: b } = ta;
+    if (a !== b) {
+      const sel = value.slice(a, b).trim();
+      if (sel && !/\s/.test(sel)) word = sel;
+    } else {
+      const L = /[\p{L}\p{M}]/u;
+      let i = a, j = a;
+      while (i > 0 && L.test(value[i - 1])) i--;
+      while (j < value.length && L.test(value[j])) j++;
+      word = value.slice(i, j);
+    }
+  }
+  if (!word) word = (prompt(t('app_syn_prompt', 'Word:')) || '').trim();
+  if (!word) return;
+  const s = State.settings;
+  const lang = ((s.spellLang && s.spellLang !== 'auto') ? s.spellLang : currentLang()).split('-')[0].toLowerCase();
+  window.open((SYN_SITES[lang] || SYN_SITES.en)(encodeURIComponent(word)), '_blank', 'noopener');
+}
+
+function _amenuPick(fn) {
+  const doc = _amenuDoc;
+  document.getElementById('amenu-dlg').close();
+  if (doc) fn(doc);
 }
 
 // ── Structure analyse dialog ──────────────────────────────────────────────
@@ -261,54 +427,13 @@ async function showAnalyse(docArg) {
   const doc = docArg || State.doc;
   if (!doc) return;
 
-  let content = (doc === State.doc) ? document.getElementById('ed-input').value : doc.content;
-  if (content == null) {
-    if (doc.fileHandle) {
-      try {
-        const file = await doc.fileHandle.getFile();
-        content = await file.text();
-      } catch(_) { content = ''; }
-    } else if (doc.id && typeof doc.id === 'number') {
-      const full = await DB.getDoc(doc.id);
-      content = full ? full.content : '';
-    } else {
-      content = '';
-    }
-  }
-
+  const content = await resolveDocContent(doc);
   const s = State.settings;
 
-  function parseHeading(line) {
-    if (s.headingMarker && line.startsWith(s.headingMarker)) {
-      let n = 1;
-      while (n < 3 && line.startsWith(s.headingMarker.repeat(n + 1))) n++;
-      const mEsc = escRx(s.headingMarker);
-      const title = line
-        .replace(new RegExp('^' + mEsc + '+\\s*'), '')
-        .replace(new RegExp('\\s*' + mEsc + '+\\s*$'), '')
-        .trim();
-      return { level: n, title: title || line.trim() };
-    }
-    if (s.markdownSupport) {
-      const m = line.match(/^(#{1,6})\s+(.*)/);
-      if (m) return { level: m[1].length, title: m[2].trim() };
-    }
-    return null;
-  }
-
-  const sections = [];
-  let curTitle = null, curLevel = 0, curWords = 0;
-
-  content.split('\n').forEach(line => {
-    const h = parseHeading(line);
-    if (h) {
-      sections.push({ title: curTitle, level: curLevel, words: curWords });
-      curTitle = h.title; curLevel = h.level; curWords = 0;
-    } else {
-      curWords += (line.match(/\S+/g) || []).length;
-    }
-  });
-  sections.push({ title: curTitle, level: curLevel, words: curWords });
+  const sections = splitChapters(content, s).map(ch => ({
+    title: ch.title, level: ch.level,
+    words: (ch.text.match(/\S+/g) || []).length,
+  }));
 
   const total = sections.reduce((acc, sec) => acc + sec.words, 0);
 
@@ -378,15 +503,268 @@ async function showAnalyse(docArg) {
   });
   body.appendChild(footer);
 
-  document.getElementById('analyse-words-btn').onclick = () => {
-    document.getElementById('analyse-dlg').close();
-    showWordOcc(doc);
-  };
-  document.getElementById('analyse-rep-btn').onclick = () => {
-    document.getElementById('analyse-dlg').close();
-    showRepetitions(doc);
-  };
   document.getElementById('analyse-dlg').showModal();
+}
+
+// ── Sentence-length dialog ────────────────────────────────────────────────
+//
+// Thresholds (State.settings.sentenceShortMax / sentenceLongMin), a per-chapter
+// short/medium/long percentage report, and - when the analysed document is the
+// open one - a live colour highlight of the three classes in the editor
+// (Editor.setSentenceMode -> Sentences.active, rendered by highlight.js). The
+// highlight is temporary: it follows edits while on, is switched off with the
+// button, and never survives Editor.close(). Non-modal + draggable like the
+// Repetitions dialog, so the text stays editable while it is open; closing the
+// dialog leaves the highlight in place.
+
+let _sentDoc = null;
+
+// Per-chapter sentence counts. Same chapter split as showAnalyse; heading and
+// comment lines are skipped (exactly like the editor highlight). An untitled
+// intro without any sentence is omitted.
+function sentenceStats(content, s, shortMax, longMin) {
+  const total = { short: 0, medium: 0, long: 0 };
+  const rows = [];
+  for (const ch of splitChapters(content, s)) {
+    const c = { short: 0, medium: 0, long: 0 };
+    for (const line of ch.text.split('\n')) {
+      if (s.commentMarker && line.startsWith(s.commentMarker)) continue;
+      for (const { words } of Sentences.split(line)) {
+        const k = Sentences.classOf(words, shortMax, longMin);
+        c[k]++; total[k]++;
+      }
+    }
+    if (ch.title === null && c.short + c.medium + c.long === 0) continue;
+    rows.push({ level: ch.level, title: ch.title, ...c });
+  }
+  return { total, rows };
+}
+
+// Reads + sanitises the two threshold inputs (long must stay above short).
+function sentReadThresholds() {
+  const s = State.settings;
+  const shortIn = document.getElementById('sent-short-max');
+  const longIn  = document.getElementById('sent-long-min');
+  let sMax = parseInt(shortIn.value, 10);
+  let lMin = parseInt(longIn.value, 10);
+  if (!(sMax >= 1)) sMax = s.sentenceShortMax >= 1 ? s.sentenceShortMax : 7;
+  if (!(lMin >= 2)) lMin = s.sentenceLongMin >= 2 ? s.sentenceLongMin : 16;
+  if (lMin <= sMax) lMin = sMax + 1;
+  shortIn.value = sMax;
+  longIn.value  = lMin;
+  return { sMax, lMin };
+}
+
+function updateSentHlBtn() {
+  const btn = document.getElementById('sent-hl-btn');
+  btn.hidden = !(_sentDoc && _sentDoc === State.doc);
+  btn.textContent = Sentences.active
+    ? t('app_sent_clear', 'Clear highlight')
+    : t('app_sent_highlight', 'Highlight in editor');
+}
+
+async function renderSentences() {
+  const doc = _sentDoc;
+  if (!doc) return;
+  const s = State.settings;
+  const { sMax, lMin } = sentReadThresholds();
+  const content = await resolveDocContent(doc);
+  const { total, rows } = sentenceStats(content, s, sMax, lMin);
+
+  const legend = document.getElementById('sent-legend');
+  legend.innerHTML = '';
+  const chip = (cls, text) => {
+    const c = document.createElement('span');
+    c.className = `sent-chip sl-${cls}`;
+    c.textContent = text;
+    return c;
+  };
+  legend.appendChild(chip('short', t('app_sent_short', 'Short (up to ${max} words)', { max: sMax })));
+  legend.appendChild(chip('medium', lMin - sMax >= 2
+    ? t('app_sent_medium', 'Medium (${min} to ${max} words)', { min: sMax + 1, max: lMin - 1 })
+    : t('app_sent_lbl_medium', 'medium') + ': -'));
+  legend.appendChild(chip('long', t('app_sent_long', 'Long (${min} words or more)', { min: lMin })));
+
+  const body = document.getElementById('sent-body');
+  body.innerHTML = '';
+  if (total.short + total.medium + total.long === 0) {
+    const empty = document.createElement('div');
+    empty.style.cssText = 'padding:12px 0;color:var(--fg-bar)';
+    empty.textContent = t('app_sent_empty', 'No sentences found.');
+    body.appendChild(empty);
+    return;
+  }
+
+  const addRow = (labelEl, c, indent) => {
+    const n = c.short + c.medium + c.long;
+    const row = document.createElement('div');
+    row.className = 'analyse-row';
+    if (indent) row.style.paddingLeft = indent + 'px';
+    const titleDiv = document.createElement('div');
+    titleDiv.className = 'analyse-title';
+    titleDiv.appendChild(labelEl);
+    row.appendChild(titleDiv);
+    if (n === 0) {
+      const none = document.createElement('div');
+      none.className = 'sent-stats';
+      none.style.color = 'var(--fg-bar)';
+      none.textContent = t('app_sent_empty', 'No sentences found.');
+      row.appendChild(none);
+    } else {
+      const bar = document.createElement('div');
+      bar.className = 'sent-bar';
+      const stats = document.createElement('div');
+      stats.className = 'sent-stats';
+      for (const k of ['short', 'medium', 'long']) {
+        const seg = document.createElement('span');
+        seg.className = `sl-${k}`;
+        seg.style.width = (c[k] / n * 100) + '%';
+        bar.appendChild(seg);
+        stats.appendChild(chip(k, `${t('app_sent_lbl_' + k, k)} ${Math.round(c[k] / n * 100)}% (${c[k]})`));
+      }
+      const cnt = document.createElement('span');
+      cnt.className = 'sent-count';
+      cnt.textContent = n === 1
+        ? t('app_sent_count_one', '${count} sentence', { count: n })
+        : t('app_sent_count_other', '${count} sentences', { count: n });
+      stats.appendChild(cnt);
+      row.appendChild(bar);
+      row.appendChild(stats);
+    }
+    body.appendChild(row);
+  };
+
+  rows.forEach(r => {
+    const label = document.createElement('span');
+    if (r.level > 0) {
+      const lvl = document.createElement('span');
+      lvl.className = 'analyse-level';
+      lvl.textContent = t('app_analyse_heading_level', 'H${level}', { level: r.level });
+      label.appendChild(lvl);
+      label.appendChild(document.createTextNode(' '));
+    }
+    const txt = document.createElement('span');
+    txt.className = 'analyse-title-text';
+    txt.textContent = r.title || t('app_analyse_start_label', '(start)');
+    label.appendChild(txt);
+    addRow(label, r, r.level > 1 ? (r.level - 1) * 14 : 0);
+  });
+  const totalLbl = document.createElement('strong');
+  totalLbl.textContent = t('app_sent_total', 'Total');
+  addRow(totalLbl, total, 0);
+}
+
+async function showSentences(docArg) {
+  const doc = docArg || State.doc;
+  if (!doc) return;
+  _sentDoc = doc;
+  const s = State.settings;
+  document.getElementById('sent-short-max').value = s.sentenceShortMax >= 1 ? s.sentenceShortMax : 7;
+  document.getElementById('sent-long-min').value  = s.sentenceLongMin  >= 2 ? s.sentenceLongMin  : 16;
+  const { sMax, lMin } = sentReadThresholds();
+  Sentences.shortMax = sMax;
+  Sentences.longMin  = lMin;
+  // Opened on the document being edited: mark it right away.
+  if (doc === State.doc) Editor.setSentenceMode(true);
+
+  document.getElementById('sent-title').textContent =
+    t('app_sent_title', 'Sentence length — ${name}', { name: doc.name });
+  const dlg = document.getElementById('sent-dlg');
+  dlg.style.left = ''; dlg.style.top = ''; dlg.style.right = '';
+  if (!dlg.open) dlg.show();
+  updateSentHlBtn();
+  await renderSentences();
+}
+
+// Threshold inputs changed (blur / Enter / spinner): persist, re-mark, re-report.
+async function sentApplyThresholds() {
+  const { sMax, lMin } = sentReadThresholds();
+  const s = State.settings;
+  if (sMax !== s.sentenceShortMax || lMin !== s.sentenceLongMin) {
+    s.sentenceShortMax = sMax;
+    s.sentenceLongMin  = lMin;
+    await saveSettings();
+  }
+  Sentences.shortMax = sMax;
+  Sentences.longMin  = lMin;
+  if (Sentences.active && State.doc) Editor.rehighlight();
+  await renderSentences();
+}
+
+function toggleSentHighlight() {
+  if (!_sentDoc || _sentDoc !== State.doc) return;
+  Editor.setSentenceMode(!Sentences.active);
+  updateSentHlBtn();
+}
+
+// ── Occurrences by chapter dialog ─────────────────────────────────────────
+// Splits the document into chapters (same split as Structure) and shows each
+// chapter's own word-occurrence list. No sort/search here, unlike the plain
+// Word occurrences dialog - kept simple on purpose. F11 (checked in
+// onKeydown, before the generic TOC-toggle branch) shows/hides a side list of
+// chapter titles for quick navigation, mirroring the editor's own TOC panel
+// but scoped to this dialog.
+
+function renderChapterOcc(chapters) {
+  const body = document.getElementById('chapter-occ-body');
+  const side = document.getElementById('chapter-occ-side');
+  body.innerHTML = '';
+  side.innerHTML = '';
+
+  chapters.forEach((ch, i) => {
+    if (ch.title === null && ch.text.trim() === '') return; // same skip rule as showAnalyse
+    const label = ch.title || t('app_analyse_start_label', '(start)');
+
+    const heading = document.createElement('div');
+    heading.className = 'chapocc-heading';
+    heading.id = `chapocc-ch-${i}`;
+    heading.textContent = label;
+    body.appendChild(heading);
+
+    const words = countWordOccurrences(ch.text);
+    if (!words.length) {
+      const empty = document.createElement('p');
+      empty.className = 'chapocc-empty';
+      empty.textContent = t('app_analyse_empty', 'No content to analyse.');
+      body.appendChild(empty);
+    } else {
+      const table = document.createElement('table');
+      table.className = 'words-table';
+      words.forEach(([word, count]) => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td>${word}</td><td>${count}</td>`;
+        table.appendChild(tr);
+      });
+      body.appendChild(table);
+    }
+
+    const sideItem = document.createElement('div');
+    sideItem.className = 'toc-item';
+    if (ch.level > 1) sideItem.classList.add(`level-${Math.min(ch.level, 3)}`);
+    sideItem.textContent = label;
+    sideItem.onclick = () => heading.scrollIntoView({ block: 'start' });
+    side.appendChild(sideItem);
+  });
+}
+
+async function showChapterOcc(docArg) {
+  const doc = docArg || State.doc;
+  if (!doc) return;
+
+  const content = await resolveDocContent(doc);
+  renderChapterOcc(splitChapters(content, State.settings));
+
+  document.getElementById('chapter-occ-title').textContent =
+    t('app_chapter_occ_title', 'Occurrences by chapter — ${name}', { name: doc.name });
+  document.getElementById('chapter-occ-side').hidden = true;
+  document.getElementById('chapter-occ-dlg').showModal();
+}
+
+function toggleChapterOccSide() {
+  const dlg = document.getElementById('chapter-occ-dlg');
+  if (!dlg.open) return;
+  const side = document.getElementById('chapter-occ-side');
+  side.hidden = !side.hidden;
 }
 
 // ── Fullscreen ────────────────────────────────────────────────────────────
@@ -425,6 +803,10 @@ function applyTheme() {
   r.setProperty('--comment', dark ? sc.comment : sc.commentAlt);
   r.setProperty('--markup',  dark ? sc.markup  : sc.markupAlt);
   r.setProperty('--bg2',     dark ? (sc.bg2 || sc.bg) : (sc.bg2Alt || sc.bgAlt));
+  // Sentence-length marks (short / medium / long) - same palette as the Tcl version
+  r.setProperty('--sl-short',  dark ? '#1f5133' : '#c7ecc9');
+  r.setProperty('--sl-medium', dark ? '#6b5a12' : '#fbe7a0');
+  r.setProperty('--sl-long',   dark ? '#6b2130' : '#f5bfc7');
 
   r.setProperty('--font-family',  s.fontFamily || 'monospace');
   r.setProperty('--font-size',    (s.fontSize  || 14) + 'px');
@@ -535,6 +917,16 @@ function onKeydown(e) {
     return;
   }
 
+  // F11 inside the chapter-occurrences dialog - dialog-local chapter quick-nav
+  // (own side list, independent of the editor's #toc-panel underneath it).
+  // Checked before the generic F11 branch below since both would otherwise
+  // match while the dialog is open.
+  if (key === 'F11' && document.getElementById('chapter-occ-dlg').open) {
+    e.preventDefault(); e.stopPropagation();
+    toggleChapterOccSide();
+    return;
+  }
+
   // Shift+Ctrl+F11 — toggle pinned TOC panel (mirrors Tcl key_toc_pinned)
   if (ctrl && shift && key === 'F11') {
     e.preventDefault(); e.stopPropagation();
@@ -608,7 +1000,7 @@ function onKeydown(e) {
         case 'c': Settings.show();           break;
         case 'e': Editor.exportDoc('txt'); break;
         case 's': Stats.show();              break;
-        case 'a': showAnalyse();             break;
+        case 'a': showAnalyseMenu();         break;
         case 'i': showFileInfo();            break;
         case 't': Timer.toggle();  Editor.updateStatusBar(); break;
         case 'p': Timer.isActive() ? Timer.pause() : Timer.toggle();
@@ -868,9 +1260,10 @@ async function init() {
       case 'export-txt': Editor.exportDoc('txt');    break;
       case 'export-md':  Editor.exportDoc('md');     break;
       case 'stats':      Stats.show();               break;
-      case 'analyse':    showAnalyse();              break;
+      case 'analyse':    showAnalyseMenu();          break;
       case 'word-occ':   showWordOcc();              break;
       case 'repetitions': showRepetitions();         break;
+      case 'chapter-occ': showChapterOcc();          break;
       case 'info':       showFileInfo();             break;
       case 'timer':      Timer.toggle(); Editor.updateStatusBar(); break;
       case 'block-cursor':
@@ -1082,10 +1475,43 @@ async function init() {
 
   // Dialog close buttons
   document.getElementById('info-close').addEventListener('click',     () => document.getElementById('info-dlg').close());
+  document.getElementById('amenu-close').addEventListener('click',    () => document.getElementById('amenu-dlg').close());
+  document.getElementById('amenu-structure').addEventListener('click', () => _amenuPick(showAnalyse));
+  document.getElementById('amenu-rep').addEventListener('click',       () => _amenuPick(showRepetitions));
+  document.getElementById('amenu-words').addEventListener('click',     () => _amenuPick(showWordOcc));
+  document.getElementById('amenu-chapters').addEventListener('click',  () => _amenuPick(showChapterOcc));
+  document.getElementById('amenu-sent').addEventListener('click',      () => _amenuPick(showSentences));
+  document.getElementById('amenu-spell').addEventListener('click',     () => _amenuPick(toggleSpellcheck));
+  document.getElementById('amenu-syn').addEventListener('click',       () => _amenuPick(openSynonyms));
+  document.getElementById('amenu-body').addEventListener('keydown', e => {
+    if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return;
+    const btns = [...document.querySelectorAll('#amenu-body button')];
+    const i = btns.indexOf(document.activeElement);
+    btns[(i + (e.key === 'ArrowDown' ? 1 : btns.length - 1)) % btns.length].focus();
+    e.preventDefault();
+  });
   document.getElementById('analyse-close').addEventListener('click',  () => document.getElementById('analyse-dlg').close());
   document.getElementById('rep-close').addEventListener('click',      () => { Editor.clearMarks(); document.getElementById('rep-dlg').close(); });
   makeDraggable(document.getElementById('rep-dlg'), document.getElementById('rep-header'));
+  document.getElementById('sent-close').addEventListener('click',     () => document.getElementById('sent-dlg').close());
+  makeDraggable(document.getElementById('sent-dlg'), document.getElementById('sent-header'));
+  document.getElementById('sent-short-max').addEventListener('change', sentApplyThresholds);
+  document.getElementById('sent-long-min').addEventListener('change',  sentApplyThresholds);
+  document.getElementById('sent-hl-btn').addEventListener('click',     toggleSentHighlight);
+  // Keep the open report in step with edits (debounced; the marks themselves
+  // already follow every keystroke through the per-line repaint).
+  let _sentTimer = null;
+  document.getElementById('ed-input').addEventListener('input', () => {
+    if (!document.getElementById('sent-dlg').open || _sentDoc !== State.doc) return;
+    clearTimeout(_sentTimer);
+    _sentTimer = setTimeout(renderSentences, 600);
+  });
   document.getElementById('words-close').addEventListener('click',    () => document.getElementById('words-dlg').close());
+  document.getElementById('words-search').addEventListener('input',   e => wordsSearchJump(e.target.value));
+  document.getElementById('words-sort-count').addEventListener('click', () => wordsSetSort('count'));
+  document.getElementById('words-sort-alpha').addEventListener('click', () => wordsSetSort('alpha'));
+  document.getElementById('chapter-occ-close').addEventListener('click', () => document.getElementById('chapter-occ-dlg').close());
+  document.getElementById('chapter-occ-toc-btn').addEventListener('click', toggleChapterOccSide);
   document.getElementById('stats-close').addEventListener('click',    () => document.getElementById('stats-dlg').close());
   document.getElementById('timer-alert-ok').addEventListener('click',  () => document.getElementById('timer-alert-dlg').close());
   document.getElementById('about-close').addEventListener('click',    () => document.getElementById('about-dlg').close());
@@ -1104,7 +1530,7 @@ async function init() {
 
   // File info / analyse from browser context menu
   document.addEventListener('writhdeck-show-info',    e => showFileInfo(e.detail));
-  document.addEventListener('writhdeck-show-analyse', e => showAnalyse(e.detail));
+  document.addEventListener('writhdeck-show-analyse', e => showAnalyseMenu(e.detail));
 
   // Command mode clicks from status bar buttons
   document.addEventListener('writhdeck-cmd', e => {
@@ -1124,7 +1550,7 @@ async function init() {
       case 'c': Settings.show();           break;
       case 'e': Editor.exportDoc('txt');   break;
       case 's': Stats.show();              break;
-      case 'a': showAnalyse();             break;
+      case 'a': showAnalyseMenu();         break;
       case 'i': showFileInfo();            break;
       case 't': Timer.toggle();  Editor.updateStatusBar(); break;
       case 'p': Timer.isActive() ? Timer.pause() : Timer.toggle();

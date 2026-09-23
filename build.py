@@ -18,6 +18,7 @@ JS_ORDER = [
     'i18n/es.js',
     'i18n/de.js',
     'i18n/pt.js',
+    'sentences.js',
     'highlight.js',
     'timer.js',
     'toc.js',

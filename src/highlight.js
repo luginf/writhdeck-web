@@ -60,7 +60,13 @@ function _renderLine(line, s, hm, cm, markupRules, dim) {
   }
   // List item: "- " always, "* " only with Markdown support. Whole line in
   // the markup colour, like bold/italic spans.
-  if (/^\s*-\s/.test(line) || (s.markdownSupport && /^\s*\*\s/.test(line))) {
+  const isList = /^\s*-\s/.test(line) || (s.markdownSupport && /^\s*\*\s/.test(line));
+  // Sentence-length mode (analysis tool): mark each sentence with its class.
+  if (!dim && Sentences.active) {
+    const marked = _renderSentences(line, markupRules, isList);
+    if (marked !== null) return marked;
+  }
+  if (isList) {
     return `<span class="hl-markup${dim ? ' hl-dim' : ''}">${esc}</span>`;
   }
   if (dim) {
@@ -72,6 +78,32 @@ function _renderLine(line, s, hm, cm, markupRules, dim) {
     result = result.replace(rule.rx, rule.replacer);
   }
   return result;
+}
+
+// Renders a prose line with one <span class="sl-short|medium|long"> per
+// sentence (Sentences.split - see sentences.js). Every character of the line is
+// kept, in order, so the text-node concatenation still equals the raw text
+// (selection highlight / block cursor rely on that). Inline markup is applied
+// per sentence, so a bold span crossing a sentence boundary is not coloured.
+// Returns null when the line holds no sentence (caller renders it normally).
+function _renderSentences(line, markupRules, isList) {
+  const sents = Sentences.split(line);
+  if (!sents.length) return null;
+  let html = '', pos = 0;
+  for (const { start, end, words } of sents) {
+    if (start > pos) html += escapeHtml(line.slice(pos, start));
+    let seg = escapeHtml(line.slice(start, end));
+    if (!isList) {
+      for (const rule of markupRules) {
+        rule.rx.lastIndex = 0;
+        seg = seg.replace(rule.rx, rule.replacer);
+      }
+    }
+    html += `<span class="sl-${Sentences.classOf(words, Sentences.shortMax, Sentences.longMin)}">${seg}</span>`;
+    pos = end;
+  }
+  if (pos < line.length) html += escapeHtml(line.slice(pos));
+  return isList ? `<span class="hl-markup">${html}</span>` : html;
 }
 
 function highlight(text, s, searchTerm, paraStart, paraEnd, cursorPos) {
@@ -117,4 +149,13 @@ function escRx(s) {
 
 function wordCount(text) {
   return (text.match(/\S+/g) || []).length;
+}
+
+// Word count skipping every line that starts with the comment marker
+// (State.settings.commentMarker).
+function wordCountNoComments(text, marker) {
+  if (!marker) return wordCount(text);
+  return text.split('\n')
+    .filter(line => !line.startsWith(marker))
+    .reduce((n, line) => n + wordCount(line), 0);
 }

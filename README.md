@@ -22,7 +22,8 @@ A distraction-free writing app that runs as a single self-contained HTML file �
 - **Typewriter mode**: keeps the cursor vertically centred; dims text outside the current paragraph so only the active paragraph appears at full colour.
 - **Find & replace** with live match highlighting, goto line, line numbers.
 - **Structure analysis**: section-by-section word-count breakdown with progress bars. Accessible from the `≡` menu (`a`).
-- **Word occurrences**: frequency table of all words, sorted by count. Accessible from the Analyse dialog or the `≡` menu.
+- **Word occurrences**: frequency table of all words, sorted by count. Accessible from the Analyse menu.
+- **Sentence length** (Analyse menu): colours every sentence short / medium / long in the editor (temporary, follows edits, removed by "Clear highlight" or closing the document) and reports the percentage of each class per chapter. Thresholds (default short <= 7 words, long >= 16) are editable and saved as `sentence_short_max` / `sentence_long_min`, shared with the desktop INI.
 - **Block cursor**: optional solid rectangle cursor, rendered in the highlight overlay. Supports blink on/off.
 - **Export** as `.txt` or `.md`.
 - **INI config**: `writhdeck.ini` is always visible in the browser. Right-click it to open, export, or reset to defaults. The format is compatible with the Tcl/Tk desktop version; web-specific options are in a dedicated `[web]` section.
@@ -86,7 +87,7 @@ The status bar becomes an interactive row of command buttons. Works in fullscree
 | `g` | Go to line | `c` | Settings |
 | `n` | Line numbers | `e` | Export as .txt |
 | `w` | Typewriter mode | `s` | Statistics |
-| `t` | Timer | `a` | Analyse structure |
+| `t` | Timer | `a` | Analysis tools menu |
 | `p` | Timer pause | `i` | File info |
 | `q` | Close document | `m` | Main menu (≡) |
 

@@ -26,7 +26,8 @@ Single-file output built from modular sources in `src/`. All JS shares a single 
 | `fonts.js` | `Fonts` (user `.ttf`/`.otf` upload + `FontFace` registration) | `DB` |
 | `state.js` | `State`, `loadState()`, `save*()`, helpers | `DB`, `customSchemes` |
 | `ini.js` | `INI` (parser/writer) | — |
-| `highlight.js` | `highlight()`, `wordCount()` | — |
+| `sentences.js` | `Sentences` (`split()`, `classOf()`, live mode `active`/`shortMax`/`longMin`) | — |
+| `highlight.js` | `highlight()`, `wordCount()` | `Sentences` |
 | `timer.js` | `Timer` | `State`, `Editor` |
 | `toc.js` | `TOC` | `State` |
 | `stats.js` | `Stats` | `State` |
@@ -52,6 +53,8 @@ Settings are persisted as an INI text string (`meta['iniText']`) via `saveSettin
 **Reset to defaults**: the Settings dialog footer has a "Reset to defaults" button that clears `meta['iniText']` from IndexedDB and reloads — equivalent to deleting `writhdeck.ini`.
 
 **INI parser note** (`ini.js`): `stripComment()` strips leading whitespace only (not trailing), so marker values with intentional trailing spaces (e.g. `comment_marker = % `) round-trip correctly. Default `commentMarker` is `'% '` (percent + space).
+
+**Cursor/daily-stats key mode (`State.settings.cursorKeyMode`, "path"/"name", 2026-09-14)** — ported the same day to all 3 platforms (see `writhdeck-android/CLAUDE.md` "Cursor restore" and `writhdeck/SKILLS.md` "Persistance"). `meta['cursors']`/`meta['daily']` are keyed by document `id`, which for a folder-backed document (watched-folder browsing, `scanDir()`/`browser.js`) is `` `dir:${relPathFromWatchedRoot}${name}` `` — i.e. already includes its subfolder location. `statKey(id)` (`state.js`) strips that relative-path portion down to the bare filename when `cursorKeyMode === 'name'` (`'dir:' + id.slice(4).split('/').pop()`), leaving it unchanged in `'path'` mode (default) or for IndexedDB-only documents (plain autoincrement `id`, never path-shaped — the setting has no effect on those). New `getCursor(id)`/`setCursor(id, offset)` wrap `State.cursors` — `editor.js` no longer touches `State.cursors` directly. `updateDaily`/`todayWords` apply `statKey` internally. **Also fixed while touching this code**: `State.settings.cursorRestore` (the "Restore cursor position on open" checkbox, `template.html`) had no effect at all — `editor.js`'s cursor-restore-on-open read `State.cursors[doc.id]` unconditionally, never checking the setting; now guarded (`getCursor`/`saveCursorPos` both check `State.settings.cursorRestore` first). Not covered: renaming/deleting a folder-backed document doesn't remap/clean up its `cursors`/`daily` entry (pre-existing gap, `browser.js`'s `renameDoc`/`deleteDoc` — same as the Tcl desktop version, unlike Android which now does this).
 
 ### Theming
 
@@ -166,6 +169,8 @@ Toggle in `≡` menu → App section → "Right-click menu".
 
 Right-clicking a document row in `browser.js` shows a menu via `showContextMenu(doc, e)`: Open, **Info**, Rename, Export as .txt, Export as .md, Stats, Delete. "Info" dispatches `writhdeck-show-info` CustomEvent with the doc object; the listener in `app.js` calls `showFileInfo(doc)`. `showFileInfo` accepts an optional `docArg` so it can show info for a document that isn't currently open.
 
+`showFileInfo` reads the live textarea value (`document.getElementById('ed-input').value`) when `docArg === State.doc`, falling back to `doc.content`/`fileHandle`/IndexedDB otherwise — same three-way content resolution already used by `showWordOcc`/`showRepetitions`/`showAnalyse`. Until 2026-08-23 it read `doc.content` unconditionally, so Words/Chars showed stale (often `0`) counts for a document open with unsaved edits (`doc.content` is only synced back on save) — fixed alongside adding a "Words (no comments)" row (`wordCountNoComments(content, marker)`, `src/highlight.js` — skips lines starting with `State.settings.commentMarker`, unconditionally, no settings toggle).
+
 ### Browser keyboard navigation
 
 `↑` / `↓` in the browser panel (no input focused) navigates the document list. The selected row receives class `.br-nav-item.br-focused` (accent-coloured left border via `box-shadow: inset 3px 0 0 var(--heading)`). Navigation state is tracked purely via the CSS class — no DOM focus involved. `Enter` calls `.click()` on the focused row to open the document. The `.br-focused` class is cleared when `render()` rebuilds the list.
@@ -221,6 +226,28 @@ IndexedDB documents are a **flat** store (no folders). Subfolder navigation appl
 ### Go to line
 
 `Editor.gotoLine()` shows `#goto-bar` (styled identically to `#search-bar`). On confirm, `gotoLineGo()` computes the character offset and scrolls using `linePixelTop()`.
+
+### Table of contents (`TOC`, `src/toc.js`)
+
+Side panel (`#toc-panel`, `F11` toggles), independent from keyboard-nav focus (`.toc-focused`, set while arrow-navigating with the panel focused — see `TOC.move`/`isFocused`). `togglePin()` (`toc-pin-btn`, mirrors Tcl's `key_toc_pinned`) makes the panel stay open across a chapter selection instead of auto-closing (`_select` only hides when `!_pinned`).
+
+**Current-chapter highlight (`.toc-current`, 2026-08-23)** — separate from `.toc-focused`: `updateCurrent()` marks the entry covering the editor's cursor line (last heading whose `data-line` is <= the cursor's), called from `Editor.updateStatusBar()` so it tracks every cursor move (click/keyup — see the `line`/`col` note above), not just re-renders triggered by text edits (`render()`, called on typing via the 600ms-debounced `refresh()`, also calls `updateCurrent()` once at the end). Cheap: no re-parse, just toggles a class over the already-rendered `.toc-item` elements via `_items()`.
+
+### Repetitions (`findRepetitions`/`showRepetitions`, `src/app.js`)
+
+Sliding-window (100 words) same-word repetition scan (stopword list EN+FR, min length 3), reached from the Structure/Analyse dialog's "Repetitions" button (`analyse-rep-btn`). `#rep-dlg` is a non-modal `<dialog>` (`.show()`, not `.showModal()` — draggable via `makeDraggable`, pointer-capture API) so clicking a result to jump (`Editor.jumpToWord`/`markWords`) doesn't need to close it first.
+
+**Open-time centering (2026-08-23)** — while building the rows, tracks the one whose `line1` is closest to the editor's current cursor line (`inEditor` — same `doc === State.doc` check already used to decide whether jump-links are active; `0`/no centering when showing a document that isn't the open one) and calls `bestRow.scrollIntoView({ block: 'center' })` after the dialog is shown (native browser centering — no manual scroll-height math needed, unlike the Tcl port of this same feature). On a short list where the target sits near the end, the browser naturally clamps rather than leaving blank space below (same outcome as Tk's `yview` clamping in the Tcl GUI port — not a bug).
+
+### Analysis tools menu (`showAnalyseMenu`, `src/app.js`, 2026-09-23)
+
+Every Analyse entry point (`a` key, `≡` menu, command mode, browser context menu via `writhdeck-show-analyse`) opens the chooser `#amenu-dlg` first (modal, Up/Down move between entries), like the desktop `analyse-dialog`: Structure (`showAnalyse`, the former direct target), Repetitions, Word occurrences, Occurrences by chapter, Sentence length, Spelling (`toggleSpellcheck`: flips the browser's native spellcheck on `#ed-input`, disabled unless the document is the open one - no dictionary of its own), Synonyms (`openSynonyms`: no thesaurus bundled, opens an online one in a new tab - `SYN_SITES` by spellcheck language, else UI language: CNRTL fr, thesaurus.com en, OpenThesaurus de, WordReference es, sinonimos.com.br pt - for the selection, else the word under the cursor, else a `prompt()`). Same order as the desktop chooser. `_amenuPick(fn)` closes the menu then calls `fn(_amenuDoc)`. The tool dialogs no longer carry `abc`/`rep`/`ch` buttons in their header. New tool = one `<button>` in `#amenu-body` + one line in `init()`.
+
+### Sentence length (`src/sentences.js`, `showSentences` in `src/app.js`, 2026-09-23)
+
+Analyse menu entry "Sentence length" -> non-modal draggable `#sent-dlg` (like `#rep-dlg`): threshold inputs (`State.settings.sentenceShortMax`/`sentenceLongMin`, INI `sentence_short_max`/`sentence_long_min`, default 7/16, persisted with `saveSettings()` on `change`; long is forced above short), legend, per-chapter report (`sentenceStats()`: stacked bar + `short/medium/long` percentages and counts, via `splitChapters`; heading and comment lines skipped) and a "Highlight in editor / Clear highlight" toggle.
+
+The highlight is a **render mode**, not an overlay patch: `Sentences.active` is read by `_renderLine()` (`highlight.js`), which wraps each sentence of a prose line in `<span class="sl-short|sl-medium|sl-long">` (`_renderSentences`; inline markup applied per sentence; a list line keeps its whole-line `hl-markup`). Since a sentence never spans a line break, the full repaint, the incremental single-line repaint (`_tryIncrementalRepaint`) and `_patchCursorLine` all get it for free, so the marks **follow edits live**, unlike the word marks of the Repetitions dialog (`_markWords`, cleared on the next keystroke). Characters are never added/removed, so the selection Highlight (`domPositionForOffset`) and `injectCursorAt` keep working. `Editor.setSentenceMode(on)` toggles + `rehighlight()`; `Editor.close()` switches it off and closes `#sent-dlg` (temporary by design). Opening the dialog on the open document turns it on at once; on a browser-listed document it only reports (`_sentDoc !== State.doc` hides the toggle). Colours: `--sl-short/--sl-medium/--sl-long`, set per dark/light in `applyTheme()` (same hex as the Tcl `sentence-colors`). The open report re-renders 600 ms after each keystroke. The splitting rules are a mirror of the Tcl `sentence-split-line` - change both together.
 
 ### Adding a feature
 

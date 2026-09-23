@@ -143,6 +143,23 @@ const TOC = (() => {
       div.addEventListener('click', () => _select(ta, e.line));
       list.appendChild(div);
     });
+    updateCurrent();
+  }
+
+  // Highlights the heading covering the editor's current cursor line (the
+  // last heading whose line is <= the cursor's), independent of keyboard
+  // focus navigation (.toc-focused) - cheap enough to call on every cursor
+  // move so the panel tracks the chapter being written without needing to
+  // reopen it.
+  function updateCurrent() {
+    if (!_visible) return;
+    const ta = document.getElementById('ed-input');
+    const items = _items();
+    if (!ta || !items.length) return;
+    const cursorLine = ta.value.substring(0, ta.selectionStart || 0).split('\n').length - 1;
+    let idx = -1;
+    items.forEach((it, i) => { if (Number(it.dataset.line) <= cursorLine) idx = i; });
+    items.forEach((it, i) => it.classList.toggle('toc-current', i === idx));
   }
 
   function focusPanel() {
@@ -172,7 +189,7 @@ const TOC = (() => {
   function refresh() { if (_visible) render(); }
 
   return {
-    toggle, hide, refresh, move, selectFocused, focusPanel, togglePin,
+    toggle, hide, refresh, move, selectFocused, focusPanel, togglePin, updateCurrent,
     isVisible: () => _visible,
     isPinned: () => _pinned,
     isFocused: () => {

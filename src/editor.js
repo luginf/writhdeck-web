@@ -54,8 +54,10 @@ const Editor = (() => {
     const input = ta();
     input.value = doc.content || '';
 
-    // Restore cursor
-    const offset = State.cursors[doc.id] || 0;
+    // Restore cursor — was previously unconditional despite the "Restore cursor
+    // position on open" setting existing in the UI (template.html, cursorRestore):
+    // the checkbox had no effect at all. Guarded now to match its label.
+    const offset = State.settings.cursorRestore ? getCursor(doc.id) : 0;
     input.setSelectionRange(offset, offset);
 
     _typewriter = false;
@@ -121,6 +123,9 @@ const Editor = (() => {
     stopClock();
     TOC.hide();
     if (window.CSS && CSS.highlights) CSS.highlights.delete('ed-selection');
+    Sentences.active  = false;   // sentence-length marks are temporary
+    const _sentDlg = document.getElementById('sent-dlg');
+    if (_sentDlg && _sentDlg.open) _sentDlg.close();
     _cmdMode          = false;
     _sessionBaseline  = -1;
     _sessionMaxToday  = 0;
@@ -327,6 +332,13 @@ const Editor = (() => {
     _markWords = words && words.length ? words : null;
     _applyMarks();
     if (_markWords) ta().addEventListener('input', clearMarks, { once: true });
+  }
+
+  // Sentence-length highlight (short/medium/long) - see sentences.js. Applies to
+  // every prose line and follows edits (the per-line repaint uses the same mode).
+  function setSentenceMode(on) {
+    Sentences.active = !!on;
+    if (State.doc) rehighlight();
   }
 
   function clearMarks() {
@@ -564,8 +576,8 @@ const Editor = (() => {
 
   function saveCursorPos() {
     if (!State.doc) return;
-    State.cursors[State.doc.id] = ta().selectionStart;
-    saveCursors();
+    if (!State.settings.cursorRestore) return;
+    setCursor(State.doc.id, ta().selectionStart);
   }
 
   // Trouve le (nœud texte, offset local) du pre #ed-highlight correspondant
@@ -903,6 +915,7 @@ const Editor = (() => {
       document.getElementById('ed-bar-right').textContent  = '';
       return;
     }
+    TOC.updateCurrent();
     const s = State.settings;
     const doc = State.doc;
 
@@ -1119,7 +1132,7 @@ const Editor = (() => {
     open, close, browser, save, saveAs, onInput, syncScroll, syncGutter, rehighlight, updateStatusBar, setMsg,
     syncCursorLineCache, syncBlockCursor, updateSelectionHighlight,
     saveCursorPos, applyLineNumbers,
-    toggleTypewriter, isTypewriter, typewriterScroll, toggleLineNumbers, gotoLine, gotoLineGo, gotoLineClose, jumpToLine, jumpToWord, markWords, clearMarks,
+    toggleTypewriter, isTypewriter, typewriterScroll, toggleLineNumbers, gotoLine, gotoLineGo, gotoLineClose, jumpToLine, jumpToWord, markWords, clearMarks, setSentenceMode,
     applyLineMarker, applyInlineMarker, applyHeading,
     enterCmdMode, exitCmdMode, isCmdMode, cmdNavMove, getCmdNavKey,
     searchOpen, searchClose, searchUpdate, searchNext, searchPrev, replaceOne, replaceAll,
